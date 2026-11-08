@@ -1,0 +1,137 @@
+﻿package com.example.burbujaglow.feature.shop
+
+import androidx.compose.runtime.mutableStateListOf
+import androidx.lifecycle.ViewModel
+import com.example.burbujaglow.data.burbujaRepository
+import com.example.burbujaglow.data.model.ItemCarrito
+import com.example.burbujaglow.data.model.ProductoComprador
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+sealed interface CompradorRoute {
+    object Inicio : CompradorRoute
+    object Catalogo : CompradorRoute
+    data class Detalle(val producto: ProductoComprador) : CompradorRoute
+    object Carrito : CompradorRoute
+    object Pago : CompradorRoute
+}
+
+data class ShopUiState(
+    val ruta: CompradorRoute = CompradorRoute.Inicio,
+    val categoriaSel: String = "Todos",
+    val busqueda: String = "",
+    val precioMin: String = "",
+    val precioMax: String = "",
+    val soloOfertas: Boolean = false,
+    val soloBest: Boolean = false,
+    val soloNuevos: Boolean = false,
+    val ordenSel: String = "recientes",
+    val mostrarFiltros: Boolean = false,
+    val carrito: List<ItemCarrito> = emptyList(),
+    val fullName: String = "",
+    val phone: String = "",
+    val email: String = "",
+    val address: String = "",
+    val city: String = "Bogotá",
+    val department: String = "Cundinamarca",
+    val postal: String = "110111",
+    val metodoPagoSel: String = "Nequi",
+    val erroresCheckout: Set<String> = emptySet(),
+    val numeroPedido: String = "MAK-10482",
+    val siguientePedido: Int = 10482,
+    val confirmarVaciar: Boolean = false,
+    val confirmarCompra: Boolean = false,
+    val mostrarExito: Boolean = false
+)
+
+sealed interface ShopUiEffect {
+    data class Toast(val mensaje: String) : ShopUiEffect
+}
+
+// Regex compilados una sola vez (antes se creaban en cada validación)
+private val PHONE_REGEX = Regex("^[0-9+\\s]{7,15}$")
+private val EMAIL_REGEX = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$")
+
+// ViewModel de la tienda: filtros, carrito, checkout y navegación interna
+class ShopViewModel : ViewModel() {
+    private val repository = burbujaRepository
+    val productos = repository.productos
+
+    private val _uiState = MutableStateFlow(ShopUiState())
+    val uiState: StateFlow<ShopUiState> = _uiState.asStateFlow()
+
+    private val _uiEffect = MutableSharedFlow<ShopUiEffect>(extraBufferCapacity = 16)
+    val uiEffect: SharedFlow<ShopUiEffect> = _uiEffect.asSharedFlow()
+
+    private fun toast(mensaje: String) { _uiEffect.tryEmit(ShopUiEffect.Toast(mensaje)) }
+
+    // Los totales se calculan en la UI desde state.carrito con totalesCarrito()
+    // El carrito vive en el repositorio; se refleja en el estado vía sync
+    private fun syncCarrito() { _uiState.value = _uiState.value.copy(carrito = repository.carrito.toList()) }
+
+    fun navegar(ruta: CompradorRoute) { _uiState.value = _uiState.value.copy(ruta = ruta) }
+    fun onCategoriaChange(v: String) { _uiState.value = _uiState.value.copy(categoriaSel = v) }
+    fun onBusquedaChange(v: String) { _uiState.value = _uiState.value.copy(busqueda = v) }
+    fun onPrecioMinChange(v: String) { _uiState.value = _uiState.value.copy(precioMin = v) }
+    fun onPrecioMaxChange(v: String) { _uiState.value = _uiState.value.copy(precioMax = v) }
+    fun onSoloOfertasChange(v: Boolean) { _uiState.value = _uiState.value.copy(soloOfertas = v) }
+    fun onSoloBestChange(v: Boolean) { _uiState.value = _uiState.value.copy(soloBest = v) }
+    fun onSoloNuevosChange(v: Boolean) { _uiState.value = _uiState.value.copy(soloNuevos = v) }
+    fun onOrdenChange(v: String) { _uiState.value = _uiState.value.copy(ordenSel = v) }
+    fun onMostrarFiltrosChange(v: Boolean) { _uiState.value = _uiState.value.copy(mostrarFiltros = v) }
+    fun limpiarFiltros() { _uiState.value = _uiState.value.copy(precioMin = "", precioMax = "", soloOfertas = false, soloBest = false, soloNuevos = false, categoriaSel = "Todos", busqueda = "") }
+
+    fun addToCart(p: ProductoComprador, qty: Int = 1): String? {
+        val error = repository.addToCart(p, qty)
+        syncCarrito()
+        return error
+    }
+
+    fun setCantidad(item: ItemCarrito, nueva: Int) {
+        repository.setCantidad(item.producto.id, nueva)
+        syncCarrito()
+    }
+
+    fun removeItem(item: ItemCarrito) { repository.removeItem(item.producto.id); syncCarrito() }
+    fun vaciarCarrito() { repository.vaciarCarrito(); syncCarrito() }
+
+    fun onFullNameChange(v: String) { _uiState.value = _uiState.value.copy(fullName = v, erroresCheckout = _uiState.value.erroresCheckout - "fullName") }
+    fun onPhoneChange(v: String) { _uiState.value = _uiState.value.copy(phone = v, erroresCheckout = _uiState.value.erroresCheckout - "phone") }
+    fun onEmailChange(v: String) { _uiState.value = _uiState.value.copy(email = v, erroresCheckout = _uiState.value.erroresCheckout - "email") }
+    fun onAddressChange(v: String) { _uiState.value = _uiState.value.copy(address = v, erroresCheckout = _uiState.value.erroresCheckout - "address") }
+    fun onCityChange(v: String) { _uiState.value = _uiState.value.copy(city = v, erroresCheckout = _uiState.value.erroresCheckout - "city") }
+    fun onDepartmentChange(v: String) { _uiState.value = _uiState.value.copy(department = v, erroresCheckout = _uiState.value.erroresCheckout - "department") }
+    fun onPostalChange(v: String) { _uiState.value = _uiState.value.copy(postal = v, erroresCheckout = _uiState.value.erroresCheckout - "postal") }
+    fun onMetodoPagoChange(v: String) { _uiState.value = _uiState.value.copy(metodoPagoSel = v) }
+
+    fun validarCheckout(): Boolean {
+        val s = _uiState.value
+        val errs = mutableSetOf<String>()
+        if (s.fullName.trim().length < 5) errs.add("fullName")
+        if (!s.phone.matches(Regex("^[0-9+\\s]{7,15}$"))) errs.add("phone")
+        if (!s.email.matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$"))) errs.add("email")
+        if (s.address.trim().length < 6) errs.add("address")
+        if (s.city.trim().length < 2) errs.add("city")
+        if (s.department.trim().length < 2) errs.add("department")
+        if (s.postal.trim().length < 4) errs.add("postal")
+        _uiState.value = s.copy(erroresCheckout = errs)
+        return errs.isEmpty()
+    }
+
+    fun procesarCompra() {
+        val s = _uiState.value
+        _uiState.value = s.copy(numeroPedido = "MAK-${s.siguientePedido}", siguientePedido = s.siguientePedido + 1)
+        repository.descontarStock()
+        repository.vaciarCarrito()
+        syncCarrito()
+        _uiState.value = _uiState.value.copy(mostrarExito = true)
+    }
+
+    fun onConfirmarVaciarChange(v: Boolean) { _uiState.value = _uiState.value.copy(confirmarVaciar = v) }
+    fun onConfirmarCompraChange(v: Boolean) { _uiState.value = _uiState.value.copy(confirmarCompra = v) }
+    fun onMostrarExitoChange(v: Boolean) { _uiState.value = _uiState.value.copy(mostrarExito = v) }
+}
