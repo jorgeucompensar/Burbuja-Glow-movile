@@ -41,12 +41,15 @@ class FirestoreDataRepository {
         listeners.clear()
     }
 
-    suspend fun sembrarCatalogoDemo(): Result<Int> = runCatching {
+    suspend fun sembrarCatalogoDemo(vendedorUid: String = ""): Result<Int> = runCatching {
         if (!habilitado) return Result.success(0)
         if (!db.collection("productos").limit(1).get().await().isEmpty) return Result.success(0)
         val batch = db.batch()
         catalogoBurbujaGlow().forEach { p ->
-            val producto = p.copy(uid = p.uid.ifBlank { "p_${p.id}" })
+            val producto = p.copy(
+                uid = p.uid.ifBlank { "p_${p.id}" },
+                vendedorId = p.vendedorId.ifBlank { vendedorUid }
+            )
             batch.set(db.collection("productos").document(producto.uid), producto.aMap())
         }
         batch.commit().await()

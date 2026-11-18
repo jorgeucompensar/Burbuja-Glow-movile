@@ -73,7 +73,7 @@ class VendedorViewModel(
 
     fun restaurarDemo() {
         repository.restaurarCatalogoAdmin()
-        viewModelScope.launch { datos.sembrarCatalogoDemo() }
+        viewModelScope.launch { datos.sembrarCatalogoDemo(_uiState.value.vendedorUid) }
     }
 
     fun cambiarEstadoPedido(numero: String, nuevoEstado: String) {

@@ -69,12 +69,12 @@ class BurbujaRepository {
     val estadosPedido = listOf("Pendiente", "Confirmado", "Preparando", "Enviado", "Entregado", "Cancelado")
 
     private val _usuarios = mutableStateListOf(
-        UsuarioAdmin(1, "Administrador", "admin@burbujaglow.com", "+57 300 123 4567", "Administrador", "Activo"),
-        UsuarioAdmin(2, "Laura Gómez", "laura.gomez@correo.com", "300 456 7890", "Comprador", "Activo"),
-        UsuarioAdmin(3, "Andrea Ruiz", "andrea.ruiz@correo.com", "310 223 5566", "Comprador", "Activo"),
-        UsuarioAdmin(4, "Sofía Martínez", "sofia.m@correo.com", "315 998 1122", "Comprador", "Activo"),
-        UsuarioAdmin(5, "Camila Herrera", "camila.h@correo.com", "320 774 3399", "Comprador", "Inactivo"),
-        UsuarioAdmin(6, "Valentina León", "vale.leon@correo.com", "301 665 8844", "Comprador", "Activo")
+        UsuarioAdmin(1, "Administrador", "admin@burbujaglow.com", "+57 300 123 4567", "ADMIN", "Activo"),
+        UsuarioAdmin(2, "Laura Gómez", "laura.gomez@correo.com", "300 456 7890", "COMPRADOR", "Activo"),
+        UsuarioAdmin(3, "Andrea Ruiz", "andrea.ruiz@correo.com", "310 223 5566", "COMPRADOR", "Activo"),
+        UsuarioAdmin(4, "Sofía Martínez", "sofia.m@correo.com", "315 998 1122", "COMPRADOR", "Activo"),
+        UsuarioAdmin(5, "Camila Herrera", "camila.h@correo.com", "320 774 3399", "COMPRADOR", "Inactivo"),
+        UsuarioAdmin(6, "Valentina León", "vale.leon@correo.com", "301 665 8844", "COMPRADOR", "Activo")
     )
     val usuarios: List<UsuarioAdmin> get() = _usuarios
 

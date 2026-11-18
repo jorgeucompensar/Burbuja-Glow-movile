@@ -94,14 +94,19 @@ class AdminViewModel(
     fun onPeriodoReporteChange(v: String) { _uiState.value = _uiState.value.copy(periodoReporte = v) }
 
     fun guardarUsuario(original: UsuarioAdmin?, nombre: String, correo: String, telefono: String, rol: String, estado: String) {
+        val rolFinal = when (rol.uppercase()) {
+            "ADMIN", "ADMINISTRADOR" -> "ADMIN"
+            "VENDEDOR" -> "VENDEDOR"
+            else -> "COMPRADOR"
+        }
         val usuario = if (original != null) {
             original.copy(
-                nombre = nombre, correo = correo, telefono = telefono, rol = rol, estado = estado,
+                nombre = nombre, correo = correo, telefono = telefono, rol = rolFinal, estado = estado,
                 uid = original.uid.ifBlank { "u_${original.id}" }
             )
         } else {
             val id = proximoUsuarioId++
-            UsuarioAdmin(id, nombre, correo, telefono, rol, estado, uid = "u_$id")
+            UsuarioAdmin(id, nombre, correo, telefono, rolFinal, estado, uid = "u_$id")
         }
         if (original != null) repository.updateUsuario(usuario) else repository.addUsuario(usuario)
         viewModelScope.launch { datos.guardarUsuario(usuario) }

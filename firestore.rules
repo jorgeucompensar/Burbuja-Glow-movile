@@ -6,11 +6,13 @@ service cloud.firestore {
     }
 
     function perfil() {
-      return firmado() ? get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data : null;
+      return firmado() && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data
+        : null;
     }
 
     function esAdmin() {
-      return firmado() && perfil() != null && perfil().rol in ['ADMIN', 'ADMINISTRADOR'];
+      return firmado() && perfil() != null && perfil().rol == 'ADMIN';
     }
 
     function esVendedor() {
@@ -23,10 +25,13 @@ service cloud.firestore {
 
     match /usuarios/{uid} {
       allow read: if esPropio(uid) || esAdmin();
-      allow create: if esPropio(uid)
-        && request.resource.data.uid == uid
-        && request.resource.data.rol in ['COMPRADOR', 'VENDEDOR', 'ADMIN'];
-      allow update: if esPropio(uid) || esAdmin();
+      allow create: if request.resource.data.uid == uid
+        && ((esPropio(uid) && request.resource.data.rol in ['COMPRADOR', 'VENDEDOR'])
+          || (esAdmin() && request.resource.data.rol in ['ADMIN', 'VENDEDOR', 'COMPRADOR']));
+      allow update: if esAdmin()
+        || (esPropio(uid)
+          && request.resource.data.rol == resource.data.rol
+          && request.resource.data.estado == resource.data.estado);
       allow delete: if esAdmin();
     }
 
@@ -44,10 +49,10 @@ service cloud.firestore {
     match /pedidos/{numero} {
       allow read: if esAdmin()
         || (firmado() && resource.data.compradorUid == request.auth.uid)
-        || (esVendedor() && request.auth.uid in resource.data.vendedorIds);
+        || (esVendedor() && request.auth.uid in resource.data.get('vendedorIds', []));
       allow create: if firmado() && request.resource.data.compradorUid == request.auth.uid;
       allow update: if esAdmin()
-        || (esVendedor() && request.auth.uid in resource.data.vendedorIds);
+        || (esVendedor() && request.auth.uid in resource.data.get('vendedorIds', []));
       allow delete: if esAdmin();
     }
 

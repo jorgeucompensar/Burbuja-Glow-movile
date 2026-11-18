@@ -61,6 +61,11 @@ class AuthRepository {
         if (rolFinal == "ADMIN" && codigoAdmin != BuildConfig.ADMIN_INVITE_CODE) {
             throw IllegalArgumentException("Código de administrador incorrecto")
         }
+        val rolGuardado = when (rolFinal) {
+            "ADMIN" -> "ADMIN"
+            "VENDEDOR" -> "VENDEDOR"
+            else -> "COMPRADOR"
+        }
         val pass = password.ifBlank { "Burbuja123*" }
         val resultado = auth.createUserWithEmailAndPassword(correo.trim(), pass).await()
         val uid = resultado.user?.uid ?: throw IllegalStateException("No se pudo crear la cuenta")
@@ -69,11 +74,7 @@ class AuthRepository {
             nombre = "${nombre.trim()} ${apellido.trim()}".trim(),
             correo = correo.trim(),
             telefono = "",
-            rol = when (rolFinal) {
-                "VENDEDOR" -> "Vendedor"
-                "ADMIN" -> "Administrador"
-                else -> "Comprador"
-            },
+            rol = rolGuardado,
             estado = "Activo",
             uid = uid,
             usuarioAlias = correo.trim().substringBefore("@")
@@ -95,7 +96,7 @@ class AuthRepository {
             uid = user.uid,
             correo = user.email.orEmpty(),
             nombre = perfil?.nombre ?: user.displayName.orEmpty(),
-            rol = (perfil?.rol ?: "Comprador").uppercase()
+            rol = (perfil?.rol ?: "COMPRADOR").uppercase()
         )
     }
 
@@ -108,13 +109,10 @@ class AuthRepository {
         if (habilitado) auth.signOut()
     }
 
-    private suspend fun resolverCorreo(usuario: String): String {
+    private fun resolverCorreo(usuario: String): String {
         val entrada = usuario.trim()
         if (entrada.contains("@")) return entrada
         val alias = entrada.lowercase()
-        val snap = db.collection("usuarios").whereEqualTo("usuarioAlias", alias).limit(1).get().await()
-        val encontrado = snap.documents.firstOrNull()?.data?.get("correo")?.toString()
-        if (!encontrado.isNullOrBlank()) return encontrado
         return when (alias) {
             "admin" -> "admin@burbujaglow.com"
             "vendedor" -> "vendedor@burbujaglow.com"

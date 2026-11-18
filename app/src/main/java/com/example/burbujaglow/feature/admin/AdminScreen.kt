@@ -54,7 +54,7 @@ fun AdminScreen(onBack: () -> Unit, viewModel: AdminViewModel = viewModel()) {
         var uNombre by remember(originalU) { mutableStateOf(originalU?.nombre ?: "") }
         var uCorreo by remember(originalU) { mutableStateOf(originalU?.correo ?: "") }
         var uTelefono by remember(originalU) { mutableStateOf(originalU?.telefono ?: "") }
-        var uRol by remember(originalU) { mutableStateOf(originalU?.rol ?: "Comprador") }
+        var uRol by remember(originalU) { mutableStateOf(originalU?.rol ?: "COMPRADOR") }
         var uEstado by remember(originalU) { mutableStateOf(originalU?.estado ?: "Activo") }
         AlertDialog(
             onDismissRequest = { viewModel.onEditarUsuarioChange(null); viewModel.onAgregarUsuarioChange(false) },
@@ -64,7 +64,7 @@ fun AdminScreen(onBack: () -> Unit, viewModel: AdminViewModel = viewModel()) {
                     OutlinedTextField(value = uNombre, onValueChange = { uNombre = it }, label = { Text("Nombre", fontSize = 11.sp) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Gold, unfocusedBorderColor = LineSoft, cursorColor = Gold))
                     OutlinedTextField(value = uCorreo, onValueChange = { uCorreo = it }, label = { Text("Correo", fontSize = 11.sp) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Gold, unfocusedBorderColor = LineSoft, cursorColor = Gold))
                     OutlinedTextField(value = uTelefono, onValueChange = { uTelefono = it }, label = { Text("Teléfono", fontSize = 11.sp) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Gold, unfocusedBorderColor = LineSoft, cursorColor = Gold))
-                    OutlinedTextField(value = uRol, onValueChange = { uRol = it }, label = { Text("Rol: Administrador / Comprador", fontSize = 11.sp) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Gold, unfocusedBorderColor = LineSoft, cursorColor = Gold))
+                    OutlinedTextField(value = uRol, onValueChange = { uRol = it }, label = { Text("Rol: ADMIN / VENDEDOR / COMPRADOR", fontSize = 11.sp) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Gold, unfocusedBorderColor = LineSoft, cursorColor = Gold))
                     OutlinedTextField(value = uEstado, onValueChange = { uEstado = it }, label = { Text("Estado: Activo / Inactivo", fontSize = 11.sp) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Gold, unfocusedBorderColor = LineSoft, cursorColor = Gold))
                 }
             },
