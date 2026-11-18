@@ -26,9 +26,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// Contenedor del panel administrativo: topbar + chips de sección + diálogos CRUD.
+// Contenedor : CRUD.
 // Cada sección vive en su propia pantalla (Dashboard/Productos/Pedidos/Usuarios/Reporte/Inventario/Config).
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminScreen(onBack: () -> Unit, viewModel: AdminViewModel = viewModel()) {
     val context = LocalContext.current
@@ -101,6 +100,7 @@ fun AdminScreen(onBack: () -> Unit, viewModel: AdminViewModel = viewModel()) {
         var precio by remember(original) { mutableStateOf(original?.precio ?: "$") }
         var stock by remember(original) { mutableStateOf(original?.stock ?: "") }
         var estado by remember(original) { mutableStateOf(original?.estado ?: "NUEVO") }
+        var imagenUrl by remember(original) { mutableStateOf(original?.imagenUrl ?: "") }
         AlertDialog(
             onDismissRequest = { viewModel.onEditarChange(null); viewModel.onAgregarChange(false) },
             title = { Text(if (original == null) "Nuevo producto" else "Editar producto", fontFamily = Serif, fontWeight = FontWeight.Bold) },
@@ -111,12 +111,17 @@ fun AdminScreen(onBack: () -> Unit, viewModel: AdminViewModel = viewModel()) {
                     OutlinedTextField(value = precio, onValueChange = { precio = it }, label = { Text("Precio (ej. \$49.900)", fontSize = 11.sp) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Gold, unfocusedBorderColor = LineSoft, cursorColor = Gold))
                     OutlinedTextField(value = stock, onValueChange = { stock = it }, label = { Text("Stock", fontSize = 11.sp) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Gold, unfocusedBorderColor = LineSoft, cursorColor = Gold))
                     OutlinedTextField(value = estado, onValueChange = { estado = it }, label = { Text("Estado: OFERTA / NUEVO / MÁS VENDIDO", fontSize = 11.sp) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Gold, unfocusedBorderColor = LineSoft, cursorColor = Gold))
+                    ImageUrlField(valor = imagenUrl, onValueChange = { imagenUrl = it })
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
                     if (nombre.isBlank()) { Toast.makeText(context, "Ingresa el nombre del producto", Toast.LENGTH_SHORT).show(); return@TextButton }
-                    viewModel.guardarProducto(original, nombre, categoria, precio, stock, estado)
+                    if (imagenUrl.isNotBlank() && !urlImagenValida(imagenUrl)) {
+                        Toast.makeText(context, "Ingresa una URL HTTPS válida o el enlace Raw de GitHub", Toast.LENGTH_SHORT).show()
+                        return@TextButton
+                    }
+                    viewModel.guardarProducto(original, nombre, categoria, precio, stock, estado, normalizarUrlImagen(imagenUrl))
                     Toast.makeText(context, if (original != null) "$nombre actualizado" else "$nombre agregado al catálogo", Toast.LENGTH_SHORT).show()
                 }) { Text("Guardar", color = Gold, fontWeight = FontWeight.Bold) }
             },

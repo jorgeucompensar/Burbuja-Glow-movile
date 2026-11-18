@@ -34,11 +34,18 @@ import com.example.burbujaglow.data.model.totalesCarrito
 fun CompradorNavegacion(
     onBack: () -> Unit,
     nombreComprador: String = "",
+    uidComprador: String = "",
+    correoComprador: String = "",
     onRegister: () -> Unit = {},
     viewModel: ShopViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(uidComprador, correoComprador, nombreComprador) {
+        viewModel.configurarSesion(uidComprador, correoComprador)
+        if (nombreComprador.isNotBlank()) viewModel.onFullNameChange(nombreComprador)
+        if (correoComprador.isNotBlank()) viewModel.onEmailChange(correoComprador)
+    }
     val ruta = state.ruta
     val carrito = state.carrito
     val totales = totalesCarrito(carrito)

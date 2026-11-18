@@ -1,16 +1,27 @@
 ﻿package com.example.burbujaglow.feature.shop
 
-import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.burbujaglow.Repositorios
+import com.example.burbujaglow.data.PaymentRepository
+import com.example.burbujaglow.data.SolicitudPago
 import com.example.burbujaglow.data.burbujaRepository
 import com.example.burbujaglow.data.model.ItemCarrito
+import com.example.burbujaglow.data.model.PedidoAdmin
 import com.example.burbujaglow.data.model.ProductoComprador
+import com.example.burbujaglow.data.model.totalesCarrito
+import com.example.burbujaglow.data.remote.FirestoreDataRepository
+import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 sealed interface CompradorRoute {
     object Inicio : CompradorRoute
@@ -45,7 +56,14 @@ data class ShopUiState(
     val siguientePedido: Int = 10482,
     val confirmarVaciar: Boolean = false,
     val confirmarCompra: Boolean = false,
-    val mostrarExito: Boolean = false
+    val mostrarExito: Boolean = false,
+    val uid: String = "",
+    val correo: String = "",
+    val latitud: Double = 0.0,
+    val longitud: Double = 0.0,
+    val sesionPago: String = "",
+    val pagando: Boolean = false,
+    val pagoEstado: String = "PENDIENTE"
 )
 
 sealed interface ShopUiEffect {
@@ -57,8 +75,12 @@ private val PHONE_REGEX = Regex("^[0-9+\\s]{7,15}$")
 private val EMAIL_REGEX = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$")
 
 // ViewModel de la tienda: filtros, carrito, checkout y navegación interna
-class ShopViewModel : ViewModel() {
+class ShopViewModel(
+    private val datos: FirestoreDataRepository = Repositorios.datos
+) : ViewModel() {
     private val repository = burbujaRepository
+    private val pagos = PaymentRepository()
+    private var carritoListener: ListenerRegistration? = null
     val productos = repository.productos
 
     private val _uiState = MutableStateFlow(ShopUiState())
@@ -72,6 +94,69 @@ class ShopViewModel : ViewModel() {
     // Los totales se calculan en la UI desde state.carrito con totalesCarrito()
     // El carrito vive en el repositorio; se refleja en el estado vía sync
     private fun syncCarrito() { _uiState.value = _uiState.value.copy(carrito = repository.carrito.toList()) }
+
+    fun configurarSesion(uid: String, correo: String) {
+        _uiState.value = _uiState.value.copy(uid = uid, correo = correo)
+        carritoListener?.remove()
+        carritoListener = datos.observarCarrito(uid) { items ->
+            repository.reemplazarCarrito(items)
+            syncCarrito()
+        }
+    }
+
+    fun onUbicacionChange(latitud: Double, longitud: Double) {
+        val s = _uiState.value
+        _uiState.value = s.copy(latitud = latitud, longitud = longitud)
+        viewModelScope.launch {
+            datos.actualizarUbicacion(s.uid, s.address, s.city, latitud, longitud)
+        }
+    }
+
+    fun prepararPago(onListo: (String) -> Unit, onError: (String) -> Unit) {
+        val s = _uiState.value
+        if (!pagos.configurado) {
+            onError("Configura EPAYCO_SESSION_URL y EPAYCO_PUBLIC_KEY en local.properties")
+            return
+        }
+        _uiState.value = s.copy(pagando = true)
+        viewModelScope.launch {
+            pagos.crearSesion(
+                SolicitudPago(
+                    numeroPedido = "MAK-${s.siguientePedido}",
+                    descripcion = "Pedido Burbuja Glow",
+                    valor = totalesCarrito(s.carrito).total,
+                    nombre = s.fullName,
+                    correo = s.email
+                )
+            ).fold(
+                onSuccess = { sesion ->
+                    _uiState.value = _uiState.value.copy(pagando = false, sesionPago = sesion)
+                    onListo(sesion)
+                },
+                onFailure = { error ->
+                    _uiState.value = _uiState.value.copy(pagando = false)
+                    onError(error.message ?: "No se pudo iniciar el pago")
+                }
+            )
+        }
+    }
+
+    fun pagoResultado(estado: String) {
+        val normalizado = estado.uppercase()
+        _uiState.value = _uiState.value.copy(pagoEstado = normalizado, sesionPago = "")
+        if (normalizado == "APROBADO") finalizarPedido("ePayco")
+        else toast("El pago no se completó. Estado: $normalizado")
+    }
+
+    fun cerrarPago() { _uiState.value = _uiState.value.copy(sesionPago = "") }
+
+    fun htmlPago(sessionId: String): String = pagos.htmlCheckout(sessionId)
+
+    override fun onCleared() {
+        carritoListener?.remove()
+        carritoListener = null
+        super.onCleared()
+    }
 
     fun navegar(ruta: CompradorRoute) { _uiState.value = _uiState.value.copy(ruta = ruta) }
     fun onCategoriaChange(v: String) { _uiState.value = _uiState.value.copy(categoriaSel = v) }
@@ -123,12 +208,43 @@ class ShopViewModel : ViewModel() {
     }
 
     fun procesarCompra() {
+        finalizarPedido(_uiState.value.metodoPagoSel)
+    }
+
+    private fun finalizarPedido(metodo: String) {
         val s = _uiState.value
-        _uiState.value = s.copy(numeroPedido = "MAK-${s.siguientePedido}", siguientePedido = s.siguientePedido + 1)
+        val numero = "MAK-${s.siguientePedido}"
+        val total = totalesCarrito(s.carrito).total
+        val pedido = PedidoAdmin(
+            numero = numero,
+            cliente = s.fullName,
+            correo = s.email,
+            fecha = SimpleDateFormat("dd MMM yyyy", Locale("es", "ES")).format(Date()),
+            productos = s.carrito.joinToString(" · ") { "${it.producto.nombre} x${it.cantidad}" },
+            total = total,
+            pago = metodo,
+            estado = "Confirmado",
+            uid = numero,
+            compradorUid = s.uid,
+            vendedorIds = s.carrito.map { it.producto.vendedorId }.filter { it.isNotBlank() }.distinct(),
+            latitud = s.latitud,
+            longitud = s.longitud,
+            estadoPago = if (metodo == "ePayco") s.pagoEstado else "PENDIENTE",
+            direccion = "${s.address}, ${s.city}, ${s.department}"
+        )
+        _uiState.value = s.copy(
+            numeroPedido = numero,
+            siguientePedido = s.siguientePedido + 1,
+            mostrarExito = true,
+            pagoEstado = "PENDIENTE"
+        )
         repository.descontarStock()
         repository.vaciarCarrito()
         syncCarrito()
-        _uiState.value = _uiState.value.copy(mostrarExito = true)
+        viewModelScope.launch {
+            datos.guardarPedido(pedido)
+            if (s.uid.isNotBlank()) datos.vaciarCarrito(s.uid)
+        }
     }
 
     fun onConfirmarVaciarChange(v: Boolean) { _uiState.value = _uiState.value.copy(confirmarVaciar = v) }

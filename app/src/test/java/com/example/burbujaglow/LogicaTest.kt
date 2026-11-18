@@ -56,6 +56,20 @@ class LogicaTest {
     }
 
     @Test
+    fun login_vendedorCorrecto() {
+        val vm = AuthViewModel()
+        vm.onUsuarioChange("vendedor"); vm.onPasswordChange("vendedor12345")
+        assertTrue(vm.intentarLogin() is LoginResult.Vendedor)
+    }
+
+    @Test
+    fun login_vendedorClaveIncorrecta() {
+        val vm = AuthViewModel()
+        vm.onUsuarioChange("vendedor"); vm.onPasswordChange("mala")
+        assertTrue(vm.intentarLogin() is LoginResult.Error)
+    }
+
+    @Test
     fun checkout_validaciones() {
         val vm = ShopViewModel()
         vm.onFullNameChange("Ana María"); vm.onPhoneChange("300 123 4567")

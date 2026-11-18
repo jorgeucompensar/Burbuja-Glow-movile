@@ -1,12 +1,16 @@
 ﻿package com.example.burbujaglow.feature.admin
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.burbujaglow.Repositorios
 import com.example.burbujaglow.data.burbujaRepository
 import com.example.burbujaglow.data.model.ProductoAdmin
 import com.example.burbujaglow.data.model.UsuarioAdmin
+import com.example.burbujaglow.data.remote.FirestoreDataRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 data class AdminUiState(
     val seccion: String = "dashboard",
@@ -27,8 +31,9 @@ data class AdminUiState(
     val cfgMoneda: String = "COP"
 )
 
-// ViewModel del panel administrativo: dashboard, CRUD, pedidos, inventario, config
-class AdminViewModel : ViewModel() {
+class AdminViewModel(
+    private val datos: FirestoreDataRepository = Repositorios.datos
+) : ViewModel() {
     private val repository = burbujaRepository
     val productos = repository.productosAdmin
     val pedidos = repository.pedidos
@@ -49,45 +54,63 @@ class AdminViewModel : ViewModel() {
     fun onAgregarChange(v: Boolean) { _uiState.value = _uiState.value.copy(mostrarAgregar = v) }
     fun onCfgChange(cfg: (AdminUiState) -> AdminUiState) { _uiState.value = cfg(_uiState.value) }
 
-    fun guardarProducto(original: ProductoAdmin?, nombre: String, categoria: String, precio: String, stock: String, estado: String) {
-        if (original != null) {
-            val idx = productos.indexOfFirst { it.id == original.id }
-            repository.updateProductoAdmin(original.copy(nombre = nombre, categoria = categoria, precio = precio, stock = stock, estado = estado.uppercase()))
+    fun guardarProducto(original: ProductoAdmin?, nombre: String, categoria: String, precio: String, stock: String, estado: String, imagenUrl: String = "") {
+        val producto = if (original != null) {
+            original.copy(
+                nombre = nombre, categoria = categoria, precio = precio,
+                stock = stock, estado = estado.uppercase(),
+                uid = original.uid.ifBlank { "p_${original.id}" },
+                imagenUrl = imagenUrl.ifBlank { original.imagenUrl }
+            )
         } else {
-            repository.addProductoAdmin(ProductoAdmin(proximoId++, nombre, categoria, precio, stock, estado.uppercase()))
+            val id = proximoId++
+            ProductoAdmin(id,nombre,categoria,precio,stock,estado.uppercase(),imagenUrl = imagenUrl,uid = "p_$id")
         }
+        if (original != null) repository.updateProductoAdmin(producto) else repository.addProductoAdmin(producto)
+        viewModelScope.launch { datos.guardarProductoAdmin(producto) }
         _uiState.value = _uiState.value.copy(productoAEditar = null, mostrarAgregar = false)
     }
 
     fun eliminarProducto(p: ProductoAdmin) {
         repository.removeProductoAdmin(p)
+        viewModelScope.launch { datos.eliminarProductoAdmin(p) }
         _uiState.value = _uiState.value.copy(productoAEliminar = null)
     }
 
-    fun restaurarDemo() { repository.restaurarCatalogoAdmin() }
+    fun restaurarDemo() {
+        repository.restaurarCatalogoAdmin()
+        viewModelScope.launch { datos.sembrarCatalogoDemo() }
+    }
 
     fun cambiarEstadoPedido(numero: String, nuevoEstado: String) {
         val ped = pedidos.find { it.numero == numero } ?: return
         repository.updatePedido(ped.copy(estado = nuevoEstado))
+        viewModelScope.launch { datos.cambiarEstadoPedido(numero, nuevoEstado) }
     }
 
-    // Gestión de usuarios: creación, edición y eliminación
     fun onEditarUsuarioChange(v: UsuarioAdmin?) { _uiState.value = _uiState.value.copy(usuarioAEditar = v) }
     fun onEliminarUsuarioChange(v: UsuarioAdmin?) { _uiState.value = _uiState.value.copy(usuarioAEliminar = v) }
     fun onAgregarUsuarioChange(v: Boolean) { _uiState.value = _uiState.value.copy(mostrarAgregarUsuario = v) }
     fun onPeriodoReporteChange(v: String) { _uiState.value = _uiState.value.copy(periodoReporte = v) }
 
     fun guardarUsuario(original: UsuarioAdmin?, nombre: String, correo: String, telefono: String, rol: String, estado: String) {
-        if (original != null) {
-            repository.updateUsuario(original.copy(nombre = nombre, correo = correo, telefono = telefono, rol = rol, estado = estado))
+        val usuario = if (original != null) {
+            original.copy(
+                nombre = nombre, correo = correo, telefono = telefono, rol = rol, estado = estado,
+                uid = original.uid.ifBlank { "u_${original.id}" }
+            )
         } else {
-            repository.addUsuario(UsuarioAdmin(proximoUsuarioId++, nombre, correo, telefono, rol, estado))
+            val id = proximoUsuarioId++
+            UsuarioAdmin(id, nombre, correo, telefono, rol, estado, uid = "u_$id")
         }
+        if (original != null) repository.updateUsuario(usuario) else repository.addUsuario(usuario)
+        viewModelScope.launch { datos.guardarUsuario(usuario) }
         _uiState.value = _uiState.value.copy(usuarioAEditar = null, mostrarAgregarUsuario = false)
     }
 
     fun eliminarUsuario(u: UsuarioAdmin) {
-        repository.removeUsuario(u)
+        repository.updateUsuario(u.copy(estado = "Inactivo"))
+        viewModelScope.launch { datos.desactivarUsuario(u) }
         _uiState.value = _uiState.value.copy(usuarioAEliminar = null)
     }
 }

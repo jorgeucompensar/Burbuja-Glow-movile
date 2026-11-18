@@ -8,6 +8,30 @@ import com.example.burbujaglow.data.model.ProductoAdmin
 import com.example.burbujaglow.data.model.ProductoComprador
 import com.example.burbujaglow.data.model.UsuarioAdmin
 
+private fun aAdministracion(p: ProductoComprador) = ProductoAdmin(
+    p.id, p.nombre, p.categoria, p.precio, p.stock.toString(),
+    if (p.sello.isBlank()) "ACTIVO" else p.sello,
+    p.imagenUrl, p.vendedorId, p.uid, p.activo
+)
+
+internal fun productoDesdeAdmin(p: ProductoAdmin): ProductoComprador {
+    val base = catalogoBurbujaGlow().find { it.id == p.id }
+    val precioValor = p.precio.filter { it.isDigit() }.toIntOrNull() ?: 0
+    return (base ?: ProductoComprador(p.id, p.nombre, p.categoria, p.precio, "", precioValor)).copy(
+        id = p.id,
+        nombre = p.nombre,
+        categoria = p.categoria,
+        precio = p.precio,
+        precioValor = precioValor,
+        stock = p.stock.toIntOrNull() ?: 0,
+        sello = if (p.estado == "ACTIVO") "" else p.estado,
+        imagenUrl = p.imagenUrl,
+        vendedorId = p.vendedorId,
+        uid = p.uid.ifBlank { "p_${p.id}" },
+        activo = p.activo
+    )
+}
+
 // Repositorio en memoria (antes: listas dispersas en MainActivity.kt).
 // Punto único de datos para ViewModels; persistencia futura: DataStore.
 // Las listas se exponen como List inmutables; toda mutación pasa por métodos.
@@ -19,9 +43,7 @@ class BurbujaRepository {
     val carrito: List<ItemCarrito> get() = _carrito
 
     private val _productosAdmin = mutableStateListOf<ProductoAdmin>().apply {
-        catalogoBurbujaGlow().forEach { p ->
-            add(ProductoAdmin(p.id, p.nombre, p.categoria, p.precio, p.stock.toString(), if (p.sello.isBlank()) "ACTIVO" else p.sello))
-        }
+        catalogoBurbujaGlow().forEach { add(aAdministracion(it)) }
     }
     val productosAdmin: List<ProductoAdmin> get() = _productosAdmin
 
@@ -85,17 +107,52 @@ class BurbujaRepository {
     }
 
     fun restaurarCatalogoAdmin() {
+        sincronizarCatalogo(catalogoBurbujaGlow())
+    }
+
+    fun sincronizarCatalogo(nuevos: List<ProductoComprador>) {
+        _productos.clear()
+        _productos.addAll(nuevos)
         _productosAdmin.clear()
-        catalogoBurbujaGlow().forEach { p -> _productosAdmin.add(ProductoAdmin(p.id, p.nombre, p.categoria, p.precio, p.stock.toString(), if (p.sello.isBlank()) "ACTIVO" else p.sello)) }
+        _productosAdmin.addAll(nuevos.map(::aAdministracion))
+    }
+
+    fun reemplazarPedidos(nuevos: List<PedidoAdmin>) {
+        _pedidos.clear()
+        _pedidos.addAll(nuevos)
+    }
+
+    fun reemplazarUsuarios(nuevos: List<UsuarioAdmin>) {
+        _usuarios.clear()
+        _usuarios.addAll(nuevos)
+    }
+
+    fun reemplazarCarrito(nuevos: List<ItemCarrito>) {
+        _carrito.clear()
+        _carrito.addAll(nuevos)
+    }
+
+    fun upsertProducto(p: ProductoComprador) {
+        val idx = _productos.indexOfFirst { it.id == p.id || it.uid == p.uid }
+        if (idx >= 0) _productos[idx] = p else _productos.add(p)
+        val admin = aAdministracion(p)
+        val idxAdmin = _productosAdmin.indexOfFirst { it.id == p.id || it.uid == p.uid }
+        if (idxAdmin >= 0) _productosAdmin[idxAdmin] = admin else _productosAdmin.add(admin)
+    }
+
+    fun eliminarProducto(p: ProductoComprador) {
+        _productos.removeAll { it.id == p.id || it.uid == p.uid }
+        _productosAdmin.removeAll { it.id == p.id || it.uid == p.uid }
     }
 
     fun updateProductoAdmin(p: ProductoAdmin) {
         val idx = _productosAdmin.indexOfFirst { it.id == p.id }
         if (idx >= 0) _productosAdmin[idx] = p
+        upsertProducto(productoDesdeAdmin(p))
     }
 
-    fun addProductoAdmin(p: ProductoAdmin) { _productosAdmin.add(p) }
-    fun removeProductoAdmin(p: ProductoAdmin) { _productosAdmin.remove(p) }
+    fun addProductoAdmin(p: ProductoAdmin) { upsertProducto(productoDesdeAdmin(p)) }
+    fun removeProductoAdmin(p: ProductoAdmin) { eliminarProducto(productoDesdeAdmin(p)) }
 
     fun updatePedido(p: PedidoAdmin) {
         val idx = _pedidos.indexOfFirst { it.numero == p.numero }

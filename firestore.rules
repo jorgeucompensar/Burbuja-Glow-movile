@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function firmado() {
+      return request.auth != null;
+    }
+
+    function perfil() {
+      return firmado() ? get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data : null;
+    }
+
+    function esAdmin() {
+      return firmado() && perfil() != null && perfil().rol in ['ADMIN', 'ADMINISTRADOR'];
+    }
+
+    function esVendedor() {
+      return firmado() && perfil() != null && perfil().rol == 'VENDEDOR';
+    }
+
+    function esPropio(uid) {
+      return firmado() && request.auth.uid == uid;
+    }
+
+    match /usuarios/{uid} {
+      allow read: if esPropio(uid) || esAdmin();
+      allow create: if esPropio(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.rol in ['COMPRADOR', 'VENDEDOR', 'ADMIN'];
+      allow update: if esPropio(uid) || esAdmin();
+      allow delete: if esAdmin();
+    }
+
+    match /productos/{id} {
+      allow read: if true;
+      allow create: if esAdmin() || (esVendedor() && request.resource.data.vendedorId == request.auth.uid);
+      allow update: if esAdmin() || (esVendedor() && resource.data.vendedorId == request.auth.uid);
+      allow delete: if esAdmin() || (esVendedor() && resource.data.vendedorId == request.auth.uid);
+    }
+
+    match /carritos/{uid}/items/{itemId} {
+      allow read, write: if esPropio(uid);
+    }
+
+    match /pedidos/{numero} {
+      allow read: if esAdmin()
+        || (firmado() && resource.data.compradorUid == request.auth.uid)
+        || (esVendedor() && request.auth.uid in resource.data.vendedorIds);
+      allow create: if firmado() && request.resource.data.compradorUid == request.auth.uid;
+      allow update: if esAdmin()
+        || (esVendedor() && request.auth.uid in resource.data.vendedorIds);
+      allow delete: if esAdmin();
+    }
+
+    match /config/{id} {
+      allow read: if true;
+      allow write: if esAdmin();
+    }
+  }
+}

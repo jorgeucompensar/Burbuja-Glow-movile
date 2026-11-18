@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import coil3.compose.AsyncImage
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -28,7 +29,23 @@ import androidx.compose.ui.unit.sp
 import com.example.burbujaglow.R
 import com.example.burbujaglow.data.model.ProductoComprador
 
-// (Sello cruelty-free retirado a pedido del cliente: función eliminada)
+// Sello animalista: identifica la marca como cruelty-free en toda la app
+@Composable
+fun CrueltyFreeBadge(
+    modifier: Modifier = Modifier,
+    texto: String = "Cruelty-Free · 100% Libre de Crueldad Animal"
+) {
+    Row(
+        modifier = modifier.clip(RoundedCornerShape(50.dp)).background(RoseLight).padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Filled.Pets, contentDescription = "Cruelty-Free", tint = Rose, modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(texto, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Rose, letterSpacing = .4.sp)
+        Spacer(Modifier.width(4.dp))
+        Icon(Icons.Filled.Verified, contentDescription = null, tint = Rose, modifier = Modifier.size(12.dp))
+    }
+}
 
 @Composable
 fun GoldenTopBar() { Box(Modifier.fillMaxWidth().height(4.dp).background(Gold)) }
@@ -42,10 +59,15 @@ fun LogoBurbujaGlow(modifier: Modifier = Modifier) {
 // Imagen real del producto (carpeta CATALOGO); respaldo al arte de burbujas
 @Composable
 fun ProductImage(producto: ProductoComprador, modifier: Modifier = Modifier) {
-    if (producto.imagen != 0) {
-        Image(painter = painterResource(id = producto.imagen), contentDescription = producto.nombre, modifier = modifier.clip(RoundedCornerShape(18.dp)), contentScale = ContentScale.Crop)
-    } else {
-        BubbleGlowArt(producto.nombre.first().toString(), modifier)
+    when {
+        producto.imagenUrl.isNotBlank() -> AsyncImage(
+            model = producto.imagenUrl,
+            contentDescription = producto.nombre,
+            modifier = modifier.clip(RoundedCornerShape(18.dp)),
+            contentScale = ContentScale.Crop
+        )
+        producto.imagen != 0 -> Image(painter = painterResource(id = producto.imagen), contentDescription = producto.nombre, modifier = modifier.clip(RoundedCornerShape(18.dp)), contentScale = ContentScale.Crop)
+        else -> BubbleGlowArt(producto.nombre.first().toString(), modifier)
     }
 }
 
@@ -62,11 +84,11 @@ fun BubbleGlowArt(initial: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null) {
+fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null, enabled: Boolean = true) {
     Button(
         onClick = onClick, modifier = modifier.height(52.dp), shape = RoundedCornerShape(50.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Charcoal, contentColor = Color.White),
-        contentPadding = PaddingValues(horizontal = 20.dp)
+        contentPadding = PaddingValues(horizontal = 20.dp), enabled = enabled
     ) {
         if (icon != null) { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
         Text(text, fontWeight = FontWeight.Bold, fontSize = 12.sp, letterSpacing = 1.sp, color = Color.White, textAlign = TextAlign.Center)

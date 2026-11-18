@@ -1,6 +1,14 @@
 ﻿package com.example.burbujaglow.feature.shop
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.webkit.JavascriptInterface
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,18 +20,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Verified
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,24 +36,78 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.burbujaglow.core.components.*
+import com.example.burbujaglow.data.LocationRepository
 import com.example.burbujaglow.data.model.totalesCarrito
+import kotlinx.coroutines.launch
 
-// Checkout: contacto + envío + pago + resumen, con validaciones VELVETTE
+private class PagoBridge(private val onResultado: (String) -> Unit) {
+    @JavascriptInterface
+    fun resultado(estado: String) {
+        onResultado(estado)
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CheckoutScreen(viewModel: ShopViewModel) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val locationRepository = remember { LocationRepository(context) }
+    val permisoUbicacion = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { concedido ->
+        if (!concedido) Toast.makeText(context, "Permiso de ubicación denegado", Toast.LENGTH_SHORT).show()
+    }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val carrito = state.carrito
     val totales = totalesCarrito(carrito)
     val metodos = listOf(
+        Triple("ePayco", "Checkout seguro con tarjeta (sandbox)", Icons.Filled.Payment),
         Triple("Nequi", "Pago inmediato desde tu aplicación Nequi", Icons.Filled.Payment),
-        Triple("Daviplata", "Pago inmediato desde Daviplata", Icons.Filled.AccountBalance),
-        Triple("Transferencia bancaria", "Datos bancarios enviados a tu correo", Icons.Filled.Verified),
+        Triple("Bancolombia", "Transferencia o botón de pago Bancolombia", Icons.Filled.AccountBalance),
+        Triple("PSE", "Pago seguro en línea con tu banco (PSE)", Icons.Filled.Verified),
         Triple("Contraentrega", "Pagas en efectivo al recibir", Icons.Filled.LocalShipping)
     )
+
+    if (state.sesionPago.isNotBlank()) {
+        Dialog(onDismissRequest = viewModel::cerrarPago) {
+            Surface(shape = RoundedCornerShape(20.dp), color = Color.White) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("Pago ePayco", fontFamily = Serif, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Charcoal)
+                    Spacer(Modifier.height(8.dp))
+                    AndroidView(
+                        modifier = Modifier.fillMaxWidth().height(460.dp).clip(RoundedCornerShape(16.dp)),
+                        factory = { ctx ->
+                            WebView(ctx).apply {
+                                settings.javaScriptEnabled = true
+                                settings.domStorageEnabled = true
+                                settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                                webViewClient = WebViewClient()
+                                addJavascriptInterface(
+                                    PagoBridge { resultado ->
+                                        post {
+                                            viewModel.pagoResultado(resultado)
+                                            viewModel.cerrarPago()
+                                        }
+                                    },
+                                    "AndroidPago"
+                                )
+                                loadDataWithBaseURL("https://checkout.epayco.co", viewModel.htmlPago(state.sesionPago), "text/html", "UTF-8", null)
+                            }
+                        }
+                    )
+                    TextButton(onClick = viewModel::cerrarPago, modifier = Modifier.fillMaxWidth()) {
+                        Text("Cerrar", color = Rose, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp)) {
         Text("Checkout", fontFamily = Serif, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Charcoal)
         Spacer(Modifier.height(4.dp))
@@ -82,6 +140,30 @@ fun CheckoutScreen(viewModel: ShopViewModel) {
             Spacer(Modifier.height(10.dp))
             StyledField("Código postal", state.postal, viewModel::onPostalChange, "Ej: 110111", Icons.Filled.LocalShipping)
             if (state.erroresCheckout.contains("postal")) { Spacer(Modifier.height(4.dp)); Text("Revisa este campo", fontSize = 10.sp, color = Danger) }
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = {
+                    if (locationRepository.tienePermiso()) {
+                        scope.launch {
+                            locationRepository.ubicacionActual().fold(
+                                onSuccess = { ubicacion ->
+                                    viewModel.onUbicacionChange(ubicacion.latitud, ubicacion.longitud)
+                                    Toast.makeText(context, "Ubicación adjuntada al pedido", Toast.LENGTH_SHORT).show()
+                                },
+                                onFailure = { Toast.makeText(context, it.message ?: "No se pudo obtener la ubicación", Toast.LENGTH_SHORT).show() }
+                            )
+                        }
+                    } else {
+                        permisoUbicacion.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(50.dp)
+            ) {
+                Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Gold, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(if (state.latitud != 0.0) "Ubicación adjuntada ✓" else "Adjuntar mi ubicación", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            }
         }
         Spacer(Modifier.height(12.dp))
         BoutiqueCard(elevation = 2) {
@@ -117,9 +199,21 @@ fun CheckoutScreen(viewModel: ShopViewModel) {
         }
         Spacer(Modifier.height(16.dp))
         Button(
-            onClick = { if (viewModel.validarCheckout()) viewModel.onConfirmarCompraChange(true) else Toast.makeText(context, "Revisa los campos marcados", Toast.LENGTH_SHORT).show() },
-            enabled = carrito.isNotEmpty(), modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(50.dp),
+            onClick = {
+                if (!viewModel.validarCheckout()) {
+                    Toast.makeText(context, "Revisa los campos marcados", Toast.LENGTH_SHORT).show()
+                } else if (state.metodoPagoSel == "ePayco") {
+                    viewModel.prepararPago(
+                        onListo = {},
+                        onError = { error -> Toast.makeText(context, error, Toast.LENGTH_LONG).show() }
+                    )
+                } else {
+                    viewModel.onConfirmarCompraChange(true)
+                }
+            },
+            enabled = carrito.isNotEmpty() && !state.pagando,
+            modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(50.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Charcoal)
-        ) { Text("CONFIRMAR PEDIDO", fontWeight = FontWeight.Bold, fontSize = 12.sp, letterSpacing = 1.sp) }
+        ) { Text(if (state.pagando) "PREPARANDO PAGO…" else "CONFIRMAR PEDIDO", fontWeight = FontWeight.Bold, fontSize = 12.sp, letterSpacing = 1.sp) }
     }
 }
