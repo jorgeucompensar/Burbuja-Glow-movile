@@ -13,14 +13,14 @@ La app funciona sin Firebase en modo demo, pero para sincronizar sesión, catál
 
 1. En `Authentication → Sign-in method`, habilita **Correo electrónico/contraseña**.
 2. Crea el primer administrador manualmente:
-   1. En `Authentication → Users → Add user`, usa `admin@burbujaglow.com` y una contraseña segura.
+   1. En `Authentication → Users → Add user`, usa `burbujaglow18@gmail.com` y una contraseña segura.
    2. Copia el UID generado.
    3. En `Firestore Database → Data → usuarios`, crea un documento con ese UID como ID y estos campos:
 
 ```text
 id: 1
 nombre: "Administrador"
-correo: "admin@burbujaglow.com"
+correo: "burbujaglow18@gmail.com"
 telefono: ""
 rol: "ADMIN"
 estado: "Activo"
@@ -36,7 +36,7 @@ longitud: 0
 4. Los roles canónicos son `ADMIN`, `VENDEDOR` y `COMPRADOR`.
 
 Alias de inicio de sesión:
-- `admin` → `admin@burbujaglow.com`
+- `admin` → `burbujaglow18@gmail.com`
 - `vendedor` → `vendedor@burbujaglow.com`
 
 La contraseña es la que definas en Firebase Authentication; las contraseñas `admin12345` y `vendedor12345` solo aplican al modo demo sin Firebase.
@@ -52,7 +52,7 @@ La contraseña es la que definas en Firebase Authentication; las contraseñas `a
    - `carritos/{uid}/items/{productoId}`
    - `pedidos/{numero}`
    - `config/{id}`
-5. El catálogo inicial se siembra automáticamente desde el panel Admin/Vendedor con **Restaurar demo**, solo si `productos` está vacío.
+5. El catálogo inicial se siembra automáticamente al entrar al panel Admin si `productos` está vacío. También puedes forzarlo con **Restaurar demo**, que solo escribe si la colección está vacía para no sobrescribir cambios existentes.
 
 ## 4. Imágenes de productos
 
@@ -64,7 +64,7 @@ Repositorio de imágenes usado:
 https://github.com/jorgeucompensar/Burbuja-Glow-movile
 ```
 
-Los primeros 8 productos del catálogo demo ya usan URLs Raw de este repositorio.
+Los primeros 8 productos del catálogo demo ya usan URLs Raw de este repositorio. Los 16 restantes usan la imagen incluida en la APK como respaldo local: Firestore guarda `imagenUrl` vacía para esos productos y la app conserva su `drawable` por `id` al sincronizar.
 
 Para crear una URL:
 

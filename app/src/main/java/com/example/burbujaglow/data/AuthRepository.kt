@@ -114,7 +114,7 @@ class AuthRepository {
         if (entrada.contains("@")) return entrada
         val alias = entrada.lowercase()
         return when (alias) {
-            "admin" -> "admin@burbujaglow.com"
+            "admin" -> "burbujaglow18@gmail.com"
             "vendedor" -> "vendedor@burbujaglow.com"
             else -> "$alias@burbujaglow.com"
         }

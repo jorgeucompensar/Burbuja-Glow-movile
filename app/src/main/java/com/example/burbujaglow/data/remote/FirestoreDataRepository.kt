@@ -1,5 +1,6 @@
 package com.example.burbujaglow.data.remote
 
+import android.util.Log
 import com.example.burbujaglow.BuildConfig
 import com.example.burbujaglow.data.burbujaRepository
 import com.example.burbujaglow.data.catalogoBurbujaGlow
@@ -9,57 +10,112 @@ import com.example.burbujaglow.data.model.ProductoAdmin
 import com.example.burbujaglow.data.model.ProductoComprador
 import com.example.burbujaglow.data.model.UsuarioAdmin
 import com.example.burbujaglow.data.productoDesdeAdmin
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.tasks.await
+
+private const val TAG = "FirestoreDataRepository"
 
 class FirestoreDataRepository {
     private val db: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
 
     val habilitado: Boolean get() = BuildConfig.FIREBASE_CONFIGURED
 
-    private val listeners = mutableListOf<ListenerRegistration>()
+    private var iniciado = false
+    private var productoListener: ListenerRegistration? = null
+    private var pedidoListener: ListenerRegistration? = null
+    private var usuarioListener: ListenerRegistration? = null
+    private var authListener: FirebaseAuth.AuthStateListener? = null
 
     fun iniciarSincronizacion() {
-        if (!habilitado || listeners.isNotEmpty()) return
-        listeners += db.collection("productos").addSnapshotListener { snap, _ ->
+        if (!habilitado || iniciado) return
+        iniciado = true
+        productoListener = db.collection("productos").addSnapshotListener { snap, error ->
+            if (error != null) {
+                Log.e(TAG, "Error al escuchar productos", error)
+                return@addSnapshotListener
+            }
             if (snap == null) return@addSnapshotListener
-            burbujaRepository.sincronizarCatalogo(snap.documents.mapNotNull { it.data?.aProducto() })
+            val remotos = snap.documents.mapNotNull { it.data?.aProducto() }
+            if (remotos.isNotEmpty() || burbujaRepository.productos.isEmpty()) {
+                burbujaRepository.sincronizarCatalogo(remotos)
+            }
         }
-        listeners += db.collection("pedidos").addSnapshotListener { snap, _ ->
-            if (snap == null) return@addSnapshotListener
-            burbujaRepository.reemplazarPedidos(snap.documents.mapNotNull { it.data?.aPedidoAdmin() })
+        val listener = FirebaseAuth.AuthStateListener { auth ->
+            val usuario = auth.currentUser
+            if (usuario == null) detenerSincronizacionProtegida() else iniciarSincronizacionProtegida()
         }
-        listeners += db.collection("usuarios").addSnapshotListener { snap, _ ->
-            if (snap == null) return@addSnapshotListener
-            burbujaRepository.reemplazarUsuarios(snap.documents.mapNotNull { it.data?.aUsuarioAdmin() })
+        authListener = listener
+        FirebaseAuth.getInstance().addAuthStateListener(listener)
+        if (FirebaseAuth.getInstance().currentUser != null) iniciarSincronizacionProtegida()
+    }
+
+    private fun iniciarSincronizacionProtegida() {
+        if (pedidoListener != null && usuarioListener != null) return
+        if (pedidoListener == null) {
+            pedidoListener = db.collection("pedidos").addSnapshotListener { snap, error ->
+                if (error != null) {
+                    Log.e(TAG, "Error al escuchar pedidos", error)
+                    return@addSnapshotListener
+                }
+                if (snap == null) return@addSnapshotListener
+                burbujaRepository.reemplazarPedidos(snap.documents.mapNotNull { it.data?.aPedidoAdmin() })
+            }
         }
+        if (usuarioListener == null) {
+            usuarioListener = db.collection("usuarios").addSnapshotListener { snap, error ->
+                if (error != null) {
+                    Log.e(TAG, "Error al escuchar usuarios", error)
+                    return@addSnapshotListener
+                }
+                if (snap == null) return@addSnapshotListener
+                burbujaRepository.reemplazarUsuarios(snap.documents.mapNotNull { it.data?.aUsuarioAdmin() })
+            }
+        }
+    }
+
+    private fun detenerSincronizacionProtegida() {
+        pedidoListener?.remove()
+        usuarioListener?.remove()
+        pedidoListener = null
+        usuarioListener = null
     }
 
     fun detenerSincronizacion() {
-        listeners.forEach { it.remove() }
-        listeners.clear()
+        authListener?.let { FirebaseAuth.getInstance().removeAuthStateListener(it) }
+        authListener = null
+        detenerSincronizacionProtegida()
+        productoListener?.remove()
+        productoListener = null
+        iniciado = false
     }
 
     suspend fun sembrarCatalogoDemo(vendedorUid: String = ""): Result<Int> = runCatching {
-        if (!habilitado) return Result.success(0)
+        if (!habilitado) error("Firebase no configurado")
         if (!db.collection("productos").limit(1).get().await().isEmpty) return Result.success(0)
+        val catalogo = catalogoBurbujaGlow()
         val batch = db.batch()
-        catalogoBurbujaGlow().forEach { p ->
+        catalogo.forEach { p ->
             val producto = p.copy(
                 uid = p.uid.ifBlank { "p_${p.id}" },
-                vendedorId = p.vendedorId.ifBlank { vendedorUid }
+                vendedorId = p.vendedorId.ifBlank { vendedorUid },
+                imagen = 0
             )
             batch.set(db.collection("productos").document(producto.uid), producto.aMap())
         }
         batch.commit().await()
-        catalogoBurbujaGlow().size
+        catalogo.size
     }
 
     suspend fun guardarProducto(producto: ProductoComprador): Result<Unit> = runCatching {
         if (!habilitado) return Result.success(Unit)
         val uid = producto.uid.ifBlank { "p_${producto.id}" }
-        db.collection("productos").document(uid).set(producto.copy(uid = uid).aMap()).await()
+        val productoRemoto = producto.copy(
+            uid = uid,
+            imagen = 0
+        )
+        db.collection("productos").document(uid).set(productoRemoto.aMap()).await()
     }
 
     suspend fun guardarProductoAdmin(producto: ProductoAdmin): Result<Unit> =
@@ -127,7 +183,11 @@ class FirestoreDataRepository {
     fun observarCarrito(uid: String, onCambio: (List<ItemCarrito>) -> Unit): ListenerRegistration? {
         if (!habilitado || uid.isBlank()) return null
         return db.collection("carritos").document(uid).collection("items")
-            .addSnapshotListener { snap, _ ->
+            .addSnapshotListener { snap, error ->
+                if (error != null) {
+                    Log.e(TAG, "Error al escuchar carrito", error)
+                    return@addSnapshotListener
+                }
                 if (snap == null) return@addSnapshotListener
                 onCambio(snap.documents.mapNotNull { doc ->
                     val data = doc.data ?: return@mapNotNull null

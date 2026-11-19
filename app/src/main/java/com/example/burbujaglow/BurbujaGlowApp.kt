@@ -11,5 +11,6 @@ class BurbujaGlowApp : Application() {
 }
 
 object Repositorios {
+    val auth: com.example.burbujaglow.data.AuthRepository = com.example.burbujaglow.data.AuthRepository()
     val datos: FirestoreDataRepository = FirestoreDataRepository()
 }

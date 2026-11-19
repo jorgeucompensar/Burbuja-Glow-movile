@@ -1,6 +1,5 @@
 ﻿package com.example.burbujaglow.feature.admin
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,18 +18,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.burbujaglow.core.components.*
+import com.example.burbujaglow.data.productoDesdeAdmin
 
 // Gestión de productos: buscador, restaurar demo, crear/editar/eliminar (CRUD)
 @Composable
 fun ProductosAdminScreen(viewModel: AdminViewModel) {
-    val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val productosFiltrados = viewModel.productos.filter { state.busquedaAdmin.isBlank() || it.nombre.contains(state.busquedaAdmin, true) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -38,7 +36,7 @@ fun ProductosAdminScreen(viewModel: AdminViewModel) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Catálogo de administración", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Charcoal)
                 Row {
-                    TextButton(onClick = { viewModel.restaurarDemo(); Toast.makeText(context, "Catálogo restaurado (demo)", Toast.LENGTH_SHORT).show() }) { Text("Restaurar demo", color = Gold, fontWeight = FontWeight.Bold, fontSize = 11.sp) }
+                    TextButton(onClick = { viewModel.restaurarDemo() }) { Text("Restaurar demo", color = Gold, fontWeight = FontWeight.Bold, fontSize = 11.sp) }
                     Box(Modifier.clip(RoundedCornerShape(50.dp)).background(Charcoal).clickable { viewModel.onAgregarChange(true) }.padding(horizontal = 14.dp, vertical = 8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Add, contentDescription = "Nuevo producto", tint = Color.White, modifier = Modifier.size(14.dp))
@@ -66,7 +64,7 @@ fun ProductosAdminScreen(viewModel: AdminViewModel) {
                         Column {
                             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Row(Modifier.weight(2.2f), verticalAlignment = Alignment.CenterVertically) {
-                                    BubbleGlowArt(item.nombre.firstOrNull()?.toString() ?: "B", Modifier.size(36.dp))
+                                    ProductImage(productoDesdeAdmin(item), Modifier.size(36.dp))
                                     Spacer(Modifier.width(8.dp))
                                     Column {
                                         Text(item.nombre, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Charcoal, lineHeight = 14.sp)

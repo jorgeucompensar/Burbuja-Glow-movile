@@ -8,6 +8,12 @@ import com.example.burbujaglow.data.model.ProductoAdmin
 import com.example.burbujaglow.data.model.ProductoComprador
 import com.example.burbujaglow.data.model.UsuarioAdmin
 
+private fun productoConImagenLocal(remoto: ProductoComprador): ProductoComprador {
+    if (remoto.imagenUrl.isNotBlank() || remoto.imagen != 0) return remoto
+    val local = catalogoBurbujaGlow().find { it.id == remoto.id } ?: return remoto
+    return remoto.copy(imagen = local.imagen)
+}
+
 private fun aAdministracion(p: ProductoComprador) = ProductoAdmin(
     p.id, p.nombre, p.categoria, p.precio, p.stock.toString(),
     if (p.sello.isBlank()) "ACTIVO" else p.sello,
@@ -69,7 +75,7 @@ class BurbujaRepository {
     val estadosPedido = listOf("Pendiente", "Confirmado", "Preparando", "Enviado", "Entregado", "Cancelado")
 
     private val _usuarios = mutableStateListOf(
-        UsuarioAdmin(1, "Administrador", "admin@burbujaglow.com", "+57 300 123 4567", "ADMIN", "Activo"),
+        UsuarioAdmin(1, "Administrador", "burbujaglow18@gmail.com", "+57 300 123 4567", "ADMIN", "Activo"),
         UsuarioAdmin(2, "Laura Gómez", "laura.gomez@correo.com", "300 456 7890", "COMPRADOR", "Activo"),
         UsuarioAdmin(3, "Andrea Ruiz", "andrea.ruiz@correo.com", "310 223 5566", "COMPRADOR", "Activo"),
         UsuarioAdmin(4, "Sofía Martínez", "sofia.m@correo.com", "315 998 1122", "COMPRADOR", "Activo"),
@@ -111,10 +117,11 @@ class BurbujaRepository {
     }
 
     fun sincronizarCatalogo(nuevos: List<ProductoComprador>) {
+        val conRespaldoLocal = nuevos.map(::productoConImagenLocal)
         _productos.clear()
-        _productos.addAll(nuevos)
+        _productos.addAll(conRespaldoLocal)
         _productosAdmin.clear()
-        _productosAdmin.addAll(nuevos.map(::aAdministracion))
+        _productosAdmin.addAll(conRespaldoLocal.map(::aAdministracion))
     }
 
     fun reemplazarPedidos(nuevos: List<PedidoAdmin>) {

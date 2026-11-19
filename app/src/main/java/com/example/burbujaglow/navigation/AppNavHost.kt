@@ -14,6 +14,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.ui.platform.LocalContext
+import com.example.burbujaglow.Repositorios
 import com.example.burbujaglow.core.components.Ivory
 import com.example.burbujaglow.data.SessionStore
 import com.example.burbujaglow.feature.admin.AdminScreen
@@ -52,6 +53,7 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
     var uidComprador by remember { mutableStateOf("") }
     var rolGuardado by remember { mutableStateOf("") }
     fun cerrarSesion() {
+        Repositorios.auth.logout()
         rolGuardado = ""
         uidComprador = ""
         scope.launch { sessionStore.cerrarSesion() }

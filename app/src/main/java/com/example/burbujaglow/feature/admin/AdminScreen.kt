@@ -34,6 +34,14 @@ fun AdminScreen(onBack: () -> Unit, viewModel: AdminViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val fechaHoy = remember { SimpleDateFormat("EEEE, d MMM yyyy", Locale("es", "CO")).format(Date()) }
     val pendientes = viewModel.pedidos.count { it.estado == "Pendiente" }
+    LaunchedEffect(Unit) {
+        viewModel.uiEffect.collect { efecto ->
+            if (efecto is AdminUiEffect.Toast) Toast.makeText(context, efecto.mensaje, Toast.LENGTH_SHORT).show()
+        }
+    }
+    LaunchedEffect(Unit) {
+        viewModel.asegurarCatalogoRemoto()
+    }
 
     state.usuarioAEliminar?.let { u ->
         AlertDialog(
@@ -41,7 +49,7 @@ fun AdminScreen(onBack: () -> Unit, viewModel: AdminViewModel = viewModel()) {
             title = { Text("Eliminar usuario", fontFamily = Serif, fontWeight = FontWeight.Bold) },
             text = { Text("¿Seguro que quieres eliminar al usuario «${u.nombre}»? Esta acción no se puede deshacer.") },
             confirmButton = {
-                TextButton(onClick = { viewModel.eliminarUsuario(u); Toast.makeText(context, "${u.nombre} eliminado", Toast.LENGTH_SHORT).show() }) {
+                TextButton(onClick = { viewModel.eliminarUsuario(u) }) {
                     Text("Eliminar", color = Rose, fontWeight = FontWeight.Bold)
                 }
             },
@@ -72,7 +80,6 @@ fun AdminScreen(onBack: () -> Unit, viewModel: AdminViewModel = viewModel()) {
                 TextButton(onClick = {
                     if (uNombre.isBlank() || !uCorreo.contains("@")) { Toast.makeText(context, "Ingresa nombre y un correo válido", Toast.LENGTH_SHORT).show(); return@TextButton }
                     viewModel.guardarUsuario(originalU, uNombre, uCorreo, uTelefono, uRol, uEstado)
-                    Toast.makeText(context, if (originalU != null) "$uNombre actualizado" else "$uNombre creado", Toast.LENGTH_SHORT).show()
                 }) { Text("Guardar", color = Gold, fontWeight = FontWeight.Bold) }
             },
             dismissButton = { TextButton(onClick = { viewModel.onEditarUsuarioChange(null); viewModel.onAgregarUsuarioChange(false) }) { Text("Cancelar") } },
@@ -85,7 +92,7 @@ fun AdminScreen(onBack: () -> Unit, viewModel: AdminViewModel = viewModel()) {
             title = { Text("Eliminar producto", fontFamily = Serif, fontWeight = FontWeight.Bold) },
             text = { Text("¿Seguro que quieres eliminar «${p.nombre}» del catálogo? Esta acción no se puede deshacer.") },
             confirmButton = {
-                TextButton(onClick = { viewModel.eliminarProducto(p); Toast.makeText(context, "${p.nombre} eliminado", Toast.LENGTH_SHORT).show() }) {
+                TextButton(onClick = { viewModel.eliminarProducto(p) }) {
                     Text("Eliminar", color = Rose, fontWeight = FontWeight.Bold)
                 }
             },
@@ -122,7 +129,6 @@ fun AdminScreen(onBack: () -> Unit, viewModel: AdminViewModel = viewModel()) {
                         return@TextButton
                     }
                     viewModel.guardarProducto(original, nombre, categoria, precio, stock, estado, normalizarUrlImagen(imagenUrl))
-                    Toast.makeText(context, if (original != null) "$nombre actualizado" else "$nombre agregado al catálogo", Toast.LENGTH_SHORT).show()
                 }) { Text("Guardar", color = Gold, fontWeight = FontWeight.Bold) }
             },
             dismissButton = { TextButton(onClick = { viewModel.onEditarChange(null); viewModel.onAgregarChange(false) }) { Text("Cancelar") } },
