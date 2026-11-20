@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,6 +26,12 @@ import com.example.burbujaglow.data.CATEGORIAS
 // Pantalla de Inicio (index): hero con logo + botones, categorías, más vendidos, nosotros, opiniones
 @Composable
 fun HomeScreen(viewModel: ShopViewModel) {
+    val conteos = remember(viewModel.productos) {
+        CATEGORIAS.associateWith { cat -> viewModel.productos.count { it.categoria == cat } }
+    }
+    val masVendidos = remember(viewModel.productos) {
+        viewModel.productos.filter { it.sello.contains("MÁS VENDIDO") }
+    }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         item {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Charcoal).padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -53,12 +60,11 @@ fun HomeScreen(viewModel: ShopViewModel) {
             Spacer(Modifier.height(10.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(CATEGORIAS) { cat ->
-                    val count = viewModel.productos.count { it.categoria == cat }
                     Column(Modifier.width(92.dp).clip(RoundedCornerShape(18.dp)).background(Color.White).clickable { viewModel.onCategoriaChange(cat); viewModel.navegar(CompradorRoute.Catalogo) }.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         BubbleGlowArt(cat.first().toString(), Modifier.size(52.dp))
                         Spacer(Modifier.height(8.dp))
                         Text(cat, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Charcoal, textAlign = androidx.compose.ui.text.style.TextAlign.Center, lineHeight = 13.sp)
-                        Text("$count productos", fontSize = 8.sp, color = Color.Gray)
+                        Text("${conteos[cat] ?: 0} productos", fontSize = 8.sp, color = Color.Gray)
                     }
                 }
             }
@@ -70,7 +76,7 @@ fun HomeScreen(viewModel: ShopViewModel) {
             }
             Spacer(Modifier.height(10.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(viewModel.productos.filter { it.sello.contains("MÁS VENDIDO") }, key = { it.id }) { prod ->
+                items(masVendidos, key = { it.id }) { prod ->
                     Column(Modifier.width(170.dp).clip(RoundedCornerShape(18.dp)).background(Color.White).clickable { viewModel.navegar(CompradorRoute.Detalle(prod)) }.padding(12.dp)) {
                         ProductImage(prod, Modifier.fillMaxWidth().height(110.dp))
                         Spacer(Modifier.height(8.dp))

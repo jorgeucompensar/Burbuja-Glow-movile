@@ -2,7 +2,13 @@
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.os.Message
+import android.util.Log
+import android.view.View
 import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -17,7 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.LocationOn
@@ -25,7 +30,6 @@ import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Storefront
-import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,13 +49,16 @@ import com.example.burbujaglow.data.LocationRepository
 import com.example.burbujaglow.data.model.totalesCarrito
 import kotlinx.coroutines.launch
 
+/** Puente JS→Kotlin que recibe el estado del checkout ePayco dentro del WebView. */
 private class PagoBridge(private val onResultado: (String) -> Unit) {
+    /** Método invocado por el script del checkout; reenvía el estado al ViewModel. */
     @JavascriptInterface
     fun resultado(estado: String) {
         onResultado(estado)
     }
 }
 
+/** Formulario de checkout y diálogo WebView con el pago seguro de ePayco. */
 @SuppressLint("SetJavaScriptEnabled")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,27 +73,61 @@ fun CheckoutScreen(viewModel: ShopViewModel) {
     val carrito = state.carrito
     val totales = totalesCarrito(carrito)
     val metodos = listOf(
-        Triple("ePayco", "Checkout seguro con tarjeta (sandbox)", Icons.Filled.Payment),
-        Triple("Nequi", "Pago inmediato desde tu aplicación Nequi", Icons.Filled.Payment),
-        Triple("Bancolombia", "Transferencia o botón de pago Bancolombia", Icons.Filled.AccountBalance),
-        Triple("PSE", "Pago seguro en línea con tu banco (PSE)", Icons.Filled.Verified),
+        Triple("ePayco", "Tarjeta, PSE, Nequi y más · checkout seguro ePayco", Icons.Filled.Payment),
         Triple("Contraentrega", "Pagas en efectivo al recibir", Icons.Filled.LocalShipping)
     )
 
+    // Cuando hay sesión de pago se muestra el WebView; al cerrarse se destruye para liberar memoria.
     if (state.sesionPago.isNotBlank()) {
         Dialog(onDismissRequest = viewModel::cerrarPago) {
             Surface(shape = RoundedCornerShape(20.dp), color = Color.White) {
                 Column(Modifier.padding(12.dp)) {
                     Text("Pago ePayco", fontFamily = Serif, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Charcoal)
                     Spacer(Modifier.height(8.dp))
+                    var webView by remember { mutableStateOf<WebView?>(null) }
+                    DisposableEffect(webView) {
+                        onDispose { webView?.destroy() }
+                    }
                     AndroidView(
-                        modifier = Modifier.fillMaxWidth().height(460.dp).clip(RoundedCornerShape(16.dp)),
+                        modifier = Modifier.fillMaxWidth().height(460.dp),
                         factory = { ctx ->
                             WebView(ctx).apply {
+                                webView = this
+                                setLayerType(View.LAYER_TYPE_SOFTWARE, null)
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
                                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                                webViewClient = WebViewClient()
+                                settings.setSupportMultipleWindows(true)
+                                webViewClient = object : WebViewClient() {
+                                    override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                                        Log.e("BurbujaPago", "WebView error ${error?.errorCode}: ${error?.description} ${request?.url}")
+                                    }
+                                }
+                                webChromeClient = object : WebChromeClient() {
+                                    override fun onCreateWindow(
+                                        view: WebView?,
+                                        isDialog: Boolean,
+                                        isUserGesture: Boolean,
+                                        resultMsg: Message?
+                                    ): Boolean {
+                                        val popup = WebView(ctx)
+                                        popup.settings.javaScriptEnabled = true
+                                        popup.settings.domStorageEnabled = true
+                                        popup.webViewClient = WebViewClient()
+                                        popup.webChromeClient = object : WebChromeClient() {
+                                            override fun onCloseWindow(window: WebView?) {
+                                                (popup.parent as? android.view.ViewGroup)?.removeView(popup)
+                                                popup.destroy()
+                                            }
+                                        }
+                                        view?.addView(popup)
+                                        resultMsg?.let { msg ->
+                                            (msg.obj as? WebView.WebViewTransport)?.webView = popup
+                                            msg.sendToTarget()
+                                        }
+                                        return true
+                                    }
+                                }
                                 addJavascriptInterface(
                                     PagoBridge { resultado ->
                                         post {
@@ -211,9 +252,12 @@ fun CheckoutScreen(viewModel: ShopViewModel) {
                     viewModel.onConfirmarCompraChange(true)
                 }
             },
-            enabled = carrito.isNotEmpty() && !state.pagando,
+            enabled = carrito.isNotEmpty() && !state.pagando && !state.verificandoPago,
             modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(50.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Charcoal)
-        ) { Text(if (state.pagando) "PREPARANDO PAGO…" else "CONFIRMAR PEDIDO", fontWeight = FontWeight.Bold, fontSize = 12.sp, letterSpacing = 1.sp) }
+        ) { Text(
+            if (state.verificandoPago) "VERIFICANDO PAGO…" else if (state.pagando) "PREPARANDO PAGO…" else "CONFIRMAR PEDIDO",
+            fontWeight = FontWeight.Bold, fontSize = 12.sp, letterSpacing = 1.sp
+        ) }
     }
 }

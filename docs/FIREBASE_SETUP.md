@@ -13,14 +13,14 @@ La app funciona sin Firebase en modo demo, pero para sincronizar sesión, catál
 
 1. En `Authentication → Sign-in method`, habilita **Correo electrónico/contraseña**.
 2. Crea el primer administrador manualmente:
-   1. En `Authentication → Users → Add user`, usa `burbujaglow18@gmail.com` y una contraseña segura.
+    1. En `Authentication → Users → Add user`, usa el correo del administrador y una contraseña segura.
    2. Copia el UID generado.
    3. En `Firestore Database → Data → usuarios`, crea un documento con ese UID como ID y estos campos:
 
 ```text
 id: 1
 nombre: "Administrador"
-correo: "burbujaglow18@gmail.com"
+correo: "<correo-del-administrador>"
 telefono: ""
 rol: "ADMIN"
 estado: "Activo"
@@ -36,10 +36,10 @@ longitud: 0
 4. Los roles canónicos son `ADMIN`, `VENDEDOR` y `COMPRADOR`.
 
 Alias de inicio de sesión:
-- `admin` → `burbujaglow18@gmail.com`
-- `vendedor` → `vendedor@burbujaglow.com`
+- `admin` → valor de `DEMO_ADMIN_EMAIL` en `local.properties`.
+- `vendedor` → valor de `DEMO_VENDOR_EMAIL` en `local.properties`.
 
-La contraseña es la que definas en Firebase Authentication; las contraseñas `admin12345` y `vendedor12345` solo aplican al modo demo sin Firebase.
+Las credenciales de la demo se entregan por separado y no se versionan. Para probar con alias, configura también `DEMO_ADMIN_PASSWORD` y `DEMO_VENDOR_PASSWORD` en `local.properties`; sin esos valores la app usa credenciales ficticias solo para pruebas unitarias. Para un despliegue real, rota las contraseñas de Firebase.
 
 ## 3. Firestore
 
@@ -51,8 +51,12 @@ La contraseña es la que definas en Firebase Authentication; las contraseñas `a
    - `productos/{productoId}`
    - `carritos/{uid}/items/{productoId}`
    - `pedidos/{numero}`
+   - `pagos_pendientes/{pedidoId}`
+   - `pagos/{transactionId}`
    - `config/{id}`
-5. El catálogo inicial se siembra automáticamente al entrar al panel Admin si `productos` está vacío. También puedes forzarlo con **Restaurar demo**, que solo escribe si la colección está vacía para no sobrescribir cambios existentes.
+ 5. El catálogo inicial se siembra automáticamente al entrar al panel Admin si `productos` está vacío. También puedes forzarlo con **Restaurar demo**, que solo escribe si la colección está vacía para no sobrescribir cambios existentes.
+ 6. El backend de pagos necesita una cuenta de servicio con acceso a Firestore. Guarda el JSON solo en el servidor (`GOOGLE_SERVICE_ACCOUNT_JSON`) y no lo subas al repositorio.
+
 
 ## 4. Imágenes de productos
 

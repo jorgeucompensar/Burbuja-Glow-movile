@@ -32,6 +32,11 @@ import java.util.Locale
 fun VendedorScreen(onBack: () -> Unit, uidVendedor: String = "", viewModel: VendedorViewModel = viewModel()) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) {
+        viewModel.uiEffect.collect { efecto ->
+            if (efecto is VendedorUiEffect.Toast) Toast.makeText(context, efecto.mensaje, Toast.LENGTH_SHORT).show()
+        }
+    }
     LaunchedEffect(uidVendedor) {
         if (uidVendedor.isNotBlank()) viewModel.configurarVendedor(uidVendedor)
     }
@@ -45,10 +50,7 @@ fun VendedorScreen(onBack: () -> Unit, uidVendedor: String = "", viewModel: Vend
             title = { Text("Eliminar producto", fontFamily = Serif, fontWeight = FontWeight.Bold) },
             text = { Text("¿Seguro que quieres eliminar «${p.nombre}» del catálogo? Esta acción no se puede deshacer.") },
             confirmButton = {
-                TextButton(onClick = {
-                    viewModel.eliminarProducto(p)
-                    Toast.makeText(context, "${p.nombre} eliminado", Toast.LENGTH_SHORT).show()
-                }) { Text("Eliminar", color = Rose, fontWeight = FontWeight.Bold) }
+                TextButton(onClick = { viewModel.eliminarProducto(p) }) { Text("Eliminar", color = Rose, fontWeight = FontWeight.Bold) }
             },
             dismissButton = { TextButton(onClick = { viewModel.onEliminarChange(null) }) { Text("Cancelar") } },
             shape = RoundedCornerShape(20.dp)
@@ -88,7 +90,6 @@ fun VendedorScreen(onBack: () -> Unit, uidVendedor: String = "", viewModel: Vend
                         return@TextButton
                     }
                     viewModel.guardarProducto(original, nombre, categoria, precio, stock, estado, normalizarUrlImagen(imagenUrl))
-                    Toast.makeText(context, if (original != null) "$nombre actualizado" else "$nombre agregado al catálogo", Toast.LENGTH_SHORT).show()
                 }) { Text("Guardar", color = Gold, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {

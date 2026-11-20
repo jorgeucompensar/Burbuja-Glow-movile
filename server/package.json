@@ -1,0 +1,14 @@
+{
+  "name": "burbuja-glow-payments",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend de pagos ePayco para Burbuja Glow",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

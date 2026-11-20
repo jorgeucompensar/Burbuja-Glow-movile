@@ -2,6 +2,7 @@ package com.example.burbujaglow.feature.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.burbujaglow.BuildConfig
 import com.example.burbujaglow.data.AuthRepository
 import com.example.burbujaglow.data.SesionUsuario
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+/** Estado de los formularios de login, registro, recuperación y sesión biométrica. */
 data class AuthUiState(
     val usuario: String = "",
     val password: String = "",
@@ -29,10 +31,12 @@ data class AuthUiState(
     val sesion: SesionUsuario? = null
 )
 
+/** Efectos puntuales de autenticación, como mensajes Toast. */
 sealed interface AuthUiEffect {
     data class Toast(val mensaje: String) : AuthUiEffect
 }
 
+/** Resultado del login: demo por rol, sesión remota o error con mensaje. */
 sealed interface LoginResult {
     object Admin : LoginResult
     object Vendedor : LoginResult
@@ -41,6 +45,7 @@ sealed interface LoginResult {
     data class Error(val mensaje: String) : LoginResult
 }
 
+/** Gestiona autenticación remota, modo demo, registro, recuperación y biometría. */
 class AuthViewModel(
     private val authRepository: AuthRepository = AuthRepository()
 ) : ViewModel() {
@@ -50,15 +55,17 @@ class AuthViewModel(
     private val _uiEffect = MutableSharedFlow<AuthUiEffect>(extraBufferCapacity = 16)
     val uiEffect: SharedFlow<AuthUiEffect> = _uiEffect.asSharedFlow()
 
+/** Emite un mensaje corto para la UI. */
     fun toast(mensaje: String) { _uiEffect.tryEmit(AuthUiEffect.Toast(mensaje)) }
 
+    /** Resuelve el login demo por alias usando credenciales configuradas localmente, nunca versionadas. */
     fun intentarLogin(): LoginResult {
         val s = _uiState.value
         val u = s.usuario.trim().lowercase()
         return when {
-            u == "admin" && s.password == "admin12345" -> LoginResult.Admin
+            u == "admin" && s.password == BuildConfig.DEMO_ADMIN_PASSWORD -> LoginResult.Admin
             u == "admin" -> LoginResult.Error("Contraseña incorrecta para el administrador")
-            u == "vendedor" && s.password == "vendedor12345" -> LoginResult.Vendedor
+            u == "vendedor" && s.password == BuildConfig.DEMO_VENDOR_PASSWORD -> LoginResult.Vendedor
             u == "vendedor" -> LoginResult.Error("Contraseña incorrecta para el vendedor")
             u.isNotBlank() -> LoginResult.Comprador
             u.isBlank() -> LoginResult.Error("Ingresa tu usuario o regístrate como comprador")
@@ -66,6 +73,7 @@ class AuthViewModel(
         }
     }
 
+/** Inicia sesión en Firebase; si no está configurado, delega en el modo demo. */
     fun loginRemoto(onResult: (LoginResult) -> Unit) {
         if (!authRepository.habilitado) {
             onResult(intentarLogin())
@@ -90,6 +98,7 @@ class AuthViewModel(
         }
     }
 
+/** Registra un usuario remoto y devuelve nombre, rol, uid y correo para la navegación. */
     fun registrarRemoto(onResult: (String, String, String, String) -> Unit) {
         val s = _uiState.value
         if (!authRepository.habilitado) {
@@ -120,6 +129,7 @@ class AuthViewModel(
         }
     }
 
+/** Solicita el correo de recuperación; valida formato antes de llamar a Firebase. */
     fun recuperarRemoto(onResult: (Boolean) -> Unit) {
         if (!authRepository.habilitado) {
             onResult(true)
@@ -144,6 +154,7 @@ class AuthViewModel(
         }
     }
 
+/** Restaura la sesión activa y entrega el rol para decidir el destino inicial. */
     fun sesionActual(onResult: (String?) -> Unit) {
         if (!authRepository.habilitado) {
             onResult(null)
@@ -160,6 +171,7 @@ class AuthViewModel(
         }
     }
 
+/** Reutiliza la sesión Firebase ya autenticada tras la validación biométrica del sistema. */
     fun loginBiometrico(onResult: (LoginResult) -> Unit) {
         if (!authRepository.habilitado) {
             onResult(LoginResult.Error("Configura Firebase para usar biometría"))
@@ -186,7 +198,9 @@ class AuthViewModel(
     fun onCorreoRecuperarChange(v: String) { _uiState.value = _uiState.value.copy(correoRecuperar = v) }
     fun onNombreCompradorChange(v: String) { _uiState.value = _uiState.value.copy(nombreComprador = v) }
 
+/** Validación mínima de correo usada por registro y recuperación. */
     fun correoValido(correo: String): Boolean = correo.contains("@") && correo.contains(".") && correo.length > 5
 
+    /** Convierte una sesión Firebase en resultado remoto para la UI. */
     private fun mapSesion(sesion: SesionUsuario): LoginResult = LoginResult.Remoto(sesion)
 }

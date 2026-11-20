@@ -3,7 +3,6 @@ package com.example.burbujaglow.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -12,7 +11,7 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "burbuja_glow")
 
-// Persistencia básica de sesión/registro con DataStore Preferences
+/** Persiste sesión y datos de registro con DataStore Preferences para restaurarlos al reiniciar. */
 class SessionStore(private val context: Context) {
     companion object {
         private val NOMBRE_COMPRADOR = stringPreferencesKey("nombre_comprador")
@@ -20,7 +19,6 @@ class SessionStore(private val context: Context) {
         private val ROL = stringPreferencesKey("rol")
         private val UID = stringPreferencesKey("uid")
         private val USUARIO = stringPreferencesKey("usuario")
-        private val BIOMETRIA = booleanPreferencesKey("biometria_activa")
     }
 
     val nombreComprador: Flow<String> = context.dataStore.data.map { it[NOMBRE_COMPRADOR] ?: "" }
@@ -28,15 +26,7 @@ class SessionStore(private val context: Context) {
     val rol: Flow<String> = context.dataStore.data.map { it[ROL] ?: "" }
     val uid: Flow<String> = context.dataStore.data.map { it[UID] ?: "" }
     val usuario: Flow<String> = context.dataStore.data.map { it[USUARIO] ?: "" }
-    val biometriaActiva: Flow<Boolean> = context.dataStore.data.map { it[BIOMETRIA] ?: false }
-
-    suspend fun guardarRegistro(nombre: String, correo: String) {
-        context.dataStore.edit { prefs ->
-            prefs[NOMBRE_COMPRADOR] = nombre
-            prefs[CORREO_REGISTRO] = correo
-        }
-    }
-
+    /** Guarda nombre, correo, rol, uid y alias de la sesión activa. */
     suspend fun guardarSesion(nombre: String, correo: String, rol: String, uid: String, usuario: String) {
         context.dataStore.edit { prefs ->
             prefs[NOMBRE_COMPRADOR] = nombre
@@ -47,10 +37,7 @@ class SessionStore(private val context: Context) {
         }
     }
 
-    suspend fun activarBiometria(activa: Boolean) {
-        context.dataStore.edit { it[BIOMETRIA] = activa }
-    }
-
+    /** Limpia rol, uid y alias; mantiene nombre/correo para comodidad en el formulario. */
     suspend fun cerrarSesion() {
         context.dataStore.edit { prefs ->
             prefs[ROL] = ""

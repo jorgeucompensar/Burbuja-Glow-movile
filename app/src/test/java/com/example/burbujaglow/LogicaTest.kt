@@ -1,5 +1,6 @@
 package com.example.burbujaglow
 
+import com.example.burbujaglow.BuildConfig
 import com.example.burbujaglow.core.components.fmtCOP
 import com.example.burbujaglow.data.model.ItemCarrito
 import com.example.burbujaglow.data.model.ProductoComprador
@@ -37,7 +38,7 @@ class LogicaTest {
     @Test
     fun login_adminCorrecto() {
         val vm = AuthViewModel()
-        vm.onUsuarioChange("admin"); vm.onPasswordChange("admin12345")
+        vm.onUsuarioChange("admin"); vm.onPasswordChange(BuildConfig.DEMO_ADMIN_PASSWORD)
         assertTrue(vm.intentarLogin() is LoginResult.Admin)
     }
 
@@ -58,7 +59,7 @@ class LogicaTest {
     @Test
     fun login_vendedorCorrecto() {
         val vm = AuthViewModel()
-        vm.onUsuarioChange("vendedor"); vm.onPasswordChange("vendedor12345")
+        vm.onUsuarioChange("vendedor"); vm.onPasswordChange(BuildConfig.DEMO_VENDOR_PASSWORD)
         assertTrue(vm.intentarLogin() is LoginResult.Vendedor)
     }
 

@@ -10,6 +10,7 @@ import com.google.firebase.auth.AuthCredential
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
+/** Datos de la sesión autenticada que la UI necesita para decidir navegación y permisos. */
 data class SesionUsuario(
     val uid: String,
     val correo: String,
@@ -17,6 +18,7 @@ data class SesionUsuario(
     val rol: String
 )
 
+/** Repositorio de autenticación Firebase: login, registro, recuperación y lectura del perfil. */
 class AuthRepository {
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
     private val db: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
@@ -24,17 +26,7 @@ class AuthRepository {
     val habilitado: Boolean get() = BuildConfig.FIREBASE_CONFIGURED
     val currentUser: FirebaseUser? get() = if (habilitado) auth.currentUser else null
 
-    fun observarSesion(onChange: (FirebaseUser?) -> Unit): com.google.firebase.auth.FirebaseAuth.AuthStateListener? {
-        if (!habilitado) return null
-        val listener = com.google.firebase.auth.FirebaseAuth.AuthStateListener { onChange(it.currentUser) }
-        auth.addAuthStateListener(listener)
-        return listener
-    }
-
-    fun dejarDeObservar(listener: com.google.firebase.auth.FirebaseAuth.AuthStateListener?) {
-        if (habilitado && listener != null) auth.removeAuthStateListener(listener)
-    }
-
+    /** Inicia sesión por correo o alias y devuelve la sesión con el rol desde Firestore. */
     suspend fun login(usuario: String, password: String): Result<SesionUsuario> = runCatching {
         if (!habilitado) return Result.failure(IllegalStateException("Firebase no configurado"))
         val correo = resolverCorreo(usuario)
@@ -42,12 +34,14 @@ class AuthRepository {
         sesionActual().getOrThrow()
     }
 
+    /** Inicia sesión con una credencial biométrica ya liberada por el sistema. */
     suspend fun loginConCredential(credential: AuthCredential): Result<SesionUsuario> = runCatching {
         if (!habilitado) return Result.failure(IllegalStateException("Firebase no configurado"))
         auth.signInWithCredential(credential).await()
         sesionActual().getOrThrow()
     }
 
+    /** Crea la cuenta Firebase y su perfil; el registro público nunca asigna rol ADMIN sin código. */
     suspend fun registrar(
         nombre: String,
         apellido: String,
@@ -83,11 +77,13 @@ class AuthRepository {
         SesionUsuario(uid, correo.trim(), perfil.nombre, perfil.rol)
     }
 
+    /** Solicita el correo de restablecimiento de contraseña de Firebase. */
     suspend fun recuperar(correo: String): Result<Unit> = runCatching {
         if (!habilitado) return Result.failure(IllegalStateException("Firebase no configurado"))
         auth.sendPasswordResetEmail(correo.trim()).await()
     }
 
+    /** Recupera la sesión activa y completa nombre/rol con el documento `usuarios/{uid}`. */
     suspend fun sesionActual(): Result<SesionUsuario> = runCatching {
         val user = currentUser ?: throw IllegalStateException("No hay sesión activa")
         val snap = db.collection("usuarios").document(user.uid).get().await()
@@ -100,23 +96,19 @@ class AuthRepository {
         )
     }
 
-    suspend fun perfil(uid: String): Result<UsuarioAdmin?> = runCatching {
-        if (!habilitado || uid.isBlank()) return Result.success(null)
-        db.collection("usuarios").document(uid).get().await().data?.aUsuarioAdmin()
-    }
-
+    /** Cierra la sesión de Firebase cuando el repositorio está habilitado. */
     fun logout() {
         if (habilitado) auth.signOut()
     }
 
+    /** Traduce los alias demo a correos configurables; cualquier otro texto se trata como correo directo. */
     private fun resolverCorreo(usuario: String): String {
         val entrada = usuario.trim()
         if (entrada.contains("@")) return entrada
-        val alias = entrada.lowercase()
-        return when (alias) {
-            "admin" -> "burbujaglow18@gmail.com"
-            "vendedor" -> "vendedor@burbujaglow.com"
-            else -> "$alias@burbujaglow.com"
+        return when (entrada.lowercase()) {
+            "admin" -> BuildConfig.DEMO_ADMIN_EMAIL
+            "vendedor" -> BuildConfig.DEMO_VENDOR_EMAIL
+            else -> "${entrada.lowercase()}@burbujaglow.com"
         }
     }
 }

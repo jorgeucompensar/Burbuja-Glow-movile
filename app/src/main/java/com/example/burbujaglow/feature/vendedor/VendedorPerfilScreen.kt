@@ -70,7 +70,7 @@ fun VendedorPerfilScreen(viewModel: VendedorViewModel) {
             Spacer(Modifier.height(10.dp))
             StyledField("Nombre del vendedor", nombre, { nombre = it }, "Ej: María García", Icons.Filled.Person)
             Spacer(Modifier.height(10.dp))
-            StyledField("Correo de contacto", correo, { correo = it }, "vendedor@burbujaglow.com", Icons.Filled.Mail)
+            StyledField("Correo de contacto", correo, { correo = it }, "vendedor@burbujaglow.test", Icons.Filled.Mail)
             Spacer(Modifier.height(10.dp))
             StyledField("Teléfono", telefono, { telefono = it }, "Ej: 300 123 4567", Icons.Filled.Phone)
             Spacer(Modifier.height(10.dp))
@@ -83,7 +83,6 @@ fun VendedorPerfilScreen(viewModel: VendedorViewModel) {
                     Toast.makeText(context, "Ingresa tu nombre y un correo válido", Toast.LENGTH_SHORT).show()
                 } else {
                     viewModel.guardarPerfil(nombre.trim(), correo.trim(), telefono.trim(), ciudad.trim(), tienda.trim())
-                    Toast.makeText(context, "Perfil actualizado", Toast.LENGTH_SHORT).show()
                 }
             }, Modifier.fillMaxWidth(), Icons.Filled.Person)
         }

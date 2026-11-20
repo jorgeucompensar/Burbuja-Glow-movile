@@ -38,6 +38,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.burbujaglow.core.biometric.BiometricAuth
 import com.example.burbujaglow.core.components.*
 
+/** Formulario de registro público; el rol ADMIN se bloquea sin el código de invitación. */
 @Composable
 fun RegistroCompradorScreen(
     onBack: () -> Unit,
@@ -152,6 +153,7 @@ fun RegistroCompradorScreen(
     }
 }
 
+/** Solicita el correo de recuperación y muestra confirmación o error según la respuesta Firebase. */
 @Composable
 fun RecuperarPasswordScreen(onBack: () -> Unit, viewModel: AuthViewModel = viewModel()) {
     val context = LocalContext.current
@@ -244,6 +246,7 @@ fun BiometricDialog(onDismiss: () -> Unit, onSuccess: () -> Unit) {
     )
 }
 
+/** Pantalla de login con acceso demo, autenticación remota y opción biométrica. */
 @Composable
 fun LoginScreen(
     onLoginSuccess: (String, String, String, String) -> Unit,

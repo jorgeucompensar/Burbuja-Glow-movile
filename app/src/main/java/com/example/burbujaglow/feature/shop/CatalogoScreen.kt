@@ -36,8 +36,8 @@ fun CatalogoScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val categorias = listOf("Todos") + CATEGORIAS
-    // Filtrados/orden calculados solo cuando cambian estado o catálogo (derivedStateOf)
-    val filtrados by remember(state, viewModel.productos) {
+    // Filtrados/orden calculados solo cuando cambian los campos leídos del estado o el catálogo
+    val filtrados by remember(viewModel.productos) {
         derivedStateOf {
             val minF = state.precioMin.filter { it.isDigit() }.toIntOrNull()
             val maxF = state.precioMax.filter { it.isDigit() }.toIntOrNull()

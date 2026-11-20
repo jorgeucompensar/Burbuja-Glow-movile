@@ -1,58 +1,112 @@
 # Configuración de ePayco sandbox
 
-El checkout usa ePayco v2 dentro de un `WebView`. La app carga `https://checkout.epayco.co/checkout-v2.js` y abre la sesión con un `sessionId`.
+El checkout usa ePayco Smart Checkout v2 dentro de un `WebView`. La app abre la sesión con un `sessionId` creado por el backend; la aprobación real se confirma con el webhook y se consulta desde la app.
 
-> La creación de la sesión requiere credenciales server-to-server. La llave privada o el `apiKey` de ePayco **no** deben incluirse en la app ni en `local.properties`.
+Ninguna credencial privada se incluye en la APK: `PUBLIC_KEY`, `PRIVATE_KEY`, `P_KEY` y `P_CUST_ID_CLIENTE` viven solo en el servidor.
 
-## 1. Obtener credenciales
+## 1. Crear cuenta y credenciales
 
-1. Crea una cuenta ePayco y entra al panel de pruebas/sandbox.
-2. Copia el `public_key` (P_CLI...) y el `cust_id`.
-3. Mantén `test = true` para sandbox.
+1. Crea una cuenta ePayco y entra al panel de **pruebas/sandbox**.
+2. Copia `public_key` (P_CLI...), `private_key`, `p_key` y `cust_id`.
+3. Registra la URL de confirmación del backend en el panel de ePayco si la plataforma lo solicita.
 
-## 2. Endpoint de sesión
+## 2. Backend
 
-Implementa un endpoint propio, por ejemplo `POST https://tu-servidor.com/api/epayco/session`, que reciba:
+El backend está en `server/` y no requiere `npm install`, solo Node 18 o superior.
+
+Variables en `server/.env`:
+
+```text
+PORT=3000
+BASE_URL=https://tu-backend.onrender.com
+EPAYCO_PUBLIC_KEY=P_CLI...
+EPAYCO_PRIVATE_KEY=...
+EPAYCO_P_KEY=...
+EPAYCO_CUST_ID_CLIENTE=...
+EPAYCO_TEST_MODE=true
+GOOGLE_SERVICE_ACCOUNT_JSON=C:\ruta\segura\service-account.json
+FIREBASE_PROJECT_ID=burbuja-glow-1d217
+```
+
+`BASE_URL` debe ser HTTPS públicamente accesible para que ePayco pueda llamar al webhook. En local puedes usar `ngrok`.
+
+Endpoints:
+
+```text
+GET  /health
+POST /api/payments/session
+GET  /api/payments/verify?pedidoId=MAK-...
+POST /api/payments/epayco/confirmation
+GET  /api/payments/epayco/response?ref_payco=...
+```
+
+El endpoint de sesión recibe:
 
 ```json
 {
-  "numeroPedido": "MAK-10482",
-  "descripcion": "Pedido Burbuja Glow",
-  "amount": 159800,
-  "currency": "COP",
-  "name": "María López",
-  "email": "maria@email.com",
-  "publicKey": "P_CLI...",
-  "custId": "123456",
-  "test": true
+  "pedidoId": "MAK-...",
+  "compradorUid": "UID_DE_FIREBASE_AUTH",
+  "items": [{ "productoId": "p_1", "cantidad": 2 }],
+  "cliente": {
+    "nombre": "María López",
+    "email": "maria@email.com",
+    "telefono": "3001234567",
+    "direccion": "Calle 12 # 34-56",
+    "ciudad": "Bogotá",
+    "departamento": "Cundinamarca",
+    "codigoPostal": "110111",
+    "latitud": 4.7,
+    "longitud": -74.1
+  }
 }
 ```
 
-El servidor debe crear la sesión con las credenciales privadas de ePayco y responder:
+El servidor recalcula el total desde Firestore, guarda `pagos_pendientes/{pedidoId}` y responde:
 
 ```json
-{ "sessionId": "id-devuelto-por-epayco" }
+{ "sessionId": "id-devuelto-por-epayco", "pedidoId": "MAK-...", "amount": 159800 }
 ```
 
-También se aceptan `id_session` o `session_id` como nombres del campo.
+## 3. Webhook
 
-## 3. local.properties
+El webhook valida la firma con:
+
+```text
+SHA256(custId^pKey^x_ref_payco^x_transaction_id^x_amount^x_currency_code)
+```
+
+Con una respuesta aprobada, el backend:
+1. Crea `pedidos/{pedidoId}` con `estadoPago = "APROBADO"` e `items`.
+2. Descuenta stock y aumenta `vendidos` en cada producto.
+3. Marca `pagos/{transactionId}` para evitar reprocesos.
+
+Con una respuesta rechazada, crea el pedido como cancelado. La app consulta `verify` cada 2 segundos hasta que el estado sea `APROBADO` o `RECHAZADO`; solo vacía el carrito cuando el backend confirma la aprobación.
+
+## 4. App
+
+En `local.properties`:
 
 ```properties
-EPAYCO_PUBLIC_KEY=P_CLI...
-EPAYCO_CUST_ID=123456
+EPAYCO_SESSION_URL=https://tu-backend.onrender.com
 EPAYCO_TEST_MODE=true
-EPAYCO_SESSION_URL=https://tu-servidor.com/api/epayco/session
 ```
 
-`local.properties` no se versiona. Después de cambiarlo, ejecuta un build limpio para regenerar `BuildConfig`.
+Después de cambiarlo, ejecuta un build limpio para regenerar `BuildConfig`. Si `EPAYCO_SESSION_URL` está vacío, la app muestra un error y no confirma el pedido ePayco.
 
-## 4. Flujo en la app
+## 5. Desplegar
 
-1. Checkout valida datos de contacto y envío.
-2. Al seleccionar **ePayco**, la app pide el `sessionId` al endpoint configurado.
-3. Se abre el WebView con checkout v2.
-4. El JavaScript avisa a la app con `AndroidPago.resultado("APROBADO" | "ERROR")`.
-5. Con `APROBADO`, se guarda el pedido y se actualiza `estadoPago`.
+En Render:
 
-Si `EPAYCO_SESSION_URL` o `EPAYCO_PUBLIC_KEY` están vacíos, la app muestra un error y no confirma el pedido.
+1. Nuevo **Web Service** apuntando a este repositorio.
+2. Runtime: Node. Build command: vacío. Start command: `node index.js`.
+3. Root directory: `server`.
+4. Agrega las variables de entorno anteriores.
+5. Copia la URL HTTPS resultante a `EPAYCO_SESSION_URL` en `local.properties`.
+
+Para prueba local:
+
+```powershell
+cd server
+$env:BASE_URL="https://abc123.ngrok-free.app"
+node index.js
+```

@@ -65,10 +65,7 @@ fun VendedorProductosScreen(viewModel: VendedorViewModel) {
                     )
                 )
                 Spacer(Modifier.height(8.dp))
-                TextButton(onClick = {
-                    viewModel.restaurarDemo()
-                    Toast.makeText(context, "Catálogo restaurado (demo)", Toast.LENGTH_SHORT).show()
-                }) { Text("Restaurar catálogo demo", color = Gold, fontWeight = FontWeight.Bold, fontSize = 11.sp) }
+                TextButton(onClick = { viewModel.restaurarDemo() }) { Text("Restaurar catálogo demo", color = Gold, fontWeight = FontWeight.Bold, fontSize = 11.sp) }
             }
         }
         item {

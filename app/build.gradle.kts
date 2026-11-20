@@ -15,6 +15,9 @@ val localProperties = Properties().apply {
 }
 fun prop(key: String, default: String) = (localProperties.getProperty(key) ?: default)
     .replace("\\", "\\\\").replace("\"", "\\\"")
+fun rawProp(key: String, default: String) = localProperties.getProperty(key) ?: default
+
+val releaseStoreFile = rootProject.file(rawProp("RELEASE_STORE_FILE", ""))
 
 android {
     namespace = "com.example.burbujaglow"
@@ -31,6 +34,10 @@ android {
 
         buildConfigField("boolean", "FIREBASE_CONFIGURED", firebaseConfigured.toString())
         buildConfigField("String", "ADMIN_INVITE_CODE", "\"${prop("ADMIN_INVITE_CODE", "BURBUJA-ADMIN")}\"")
+        buildConfigField("String", "DEMO_ADMIN_EMAIL", "\"${prop("DEMO_ADMIN_EMAIL", "admin@burbujaglow.test")}\"")
+        buildConfigField("String", "DEMO_VENDOR_EMAIL", "\"${prop("DEMO_VENDOR_EMAIL", "vendedor@burbujaglow.test")}\"")
+        buildConfigField("String", "DEMO_ADMIN_PASSWORD", "\"${prop("DEMO_ADMIN_PASSWORD", "demo-admin")}\"")
+        buildConfigField("String", "DEMO_VENDOR_PASSWORD", "\"${prop("DEMO_VENDOR_PASSWORD", "demo-vendor")}\"")
         buildConfigField("String", "EPAYCO_PUBLIC_KEY", "\"${prop("EPAYCO_PUBLIC_KEY", "")}\"")
         buildConfigField("String", "EPAYCO_CUST_ID", "\"${prop("EPAYCO_CUST_ID", "")}\"")
         buildConfigField("String", "EPAYCO_SESSION_URL", "\"${prop("EPAYCO_SESSION_URL", "")}\"")
@@ -39,11 +46,22 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            if (releaseStoreFile.exists()) {
+                storeFile = releaseStoreFile
+                storePassword = prop("RELEASE_STORE_PASSWORD", "")
+                keyAlias = rawProp("RELEASE_KEY_ALIAS", "burbujaglow")
+                keyPassword = prop("RELEASE_KEY_PASSWORD", "")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (releaseStoreFile.exists()) signingConfig = signingConfigs.getByName("release")
             optimization {
                 enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
             }
         }
     }
@@ -66,7 +84,6 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.play.services.location)
-    implementation(libs.androidx.webkit)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
     implementation("androidx.compose.material:material-icons-extended")
@@ -84,7 +101,6 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-    androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)

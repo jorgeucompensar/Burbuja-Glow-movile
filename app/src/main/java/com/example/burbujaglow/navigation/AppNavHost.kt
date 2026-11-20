@@ -26,7 +26,7 @@ import com.example.burbujaglow.feature.splash.SplashScreen
 import com.example.burbujaglow.feature.vendedor.VendedorScreen
 import kotlinx.coroutines.launch
 
-// Rutas principales (Navigation Compose)
+/** Rutas principales usadas por Navigation Compose. */
 object Routes {
     const val SPLASH = "splash"
     const val LOGIN = "login"
@@ -37,12 +37,14 @@ object Routes {
     const val VENDEDOR = "vendedor"
 }
 
+/** Resuelve el destino inicial según el rol guardado en la sesión. */
 private fun destinoPorRol(rol: String): String = when (rol.uppercase()) {
     "ADMIN", "ADMINISTRADOR" -> Routes.ADMIN
     "VENDEDOR" -> Routes.VENDEDOR
     else -> Routes.COMPRADOR
 }
 
+/** Grafo de navegación: restaura sesión desde DataStore y enruta por rol sin permitir volver al login. */
 @Composable
 fun AppNavHost(navController: NavHostController = rememberNavController()) {
     val context = LocalContext.current
@@ -52,12 +54,14 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
     var correoComprador by remember { mutableStateOf("") }
     var uidComprador by remember { mutableStateOf("") }
     var rolGuardado by remember { mutableStateOf("") }
+/** Cierra Firebase y limpia la sesión persistida antes de volver al login. */
     fun cerrarSesion() {
         Repositorios.auth.logout()
         rolGuardado = ""
         uidComprador = ""
         scope.launch { sessionStore.cerrarSesion() }
     }
+    // Estos efectos restauran nombre, correo, uid y rol guardados al reabrir la app.
     LaunchedEffect(Unit) {
         sessionStore.nombreComprador.collect { guardado -> if (guardado.isNotBlank()) nombreComprador = guardado }
     }

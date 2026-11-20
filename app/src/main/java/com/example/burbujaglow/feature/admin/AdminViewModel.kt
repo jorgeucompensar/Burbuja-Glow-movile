@@ -19,10 +19,12 @@ import kotlin.math.abs
 
 private const val TAG = "AdminViewModel"
 
+/** Efectos puntuales del panel administrativo, como mensajes Toast. */
 sealed interface AdminUiEffect {
     data class Toast(val mensaje: String) : AdminUiEffect
 }
 
+/** Estado de navegación y diálogos del panel administrativo. */
 data class AdminUiState(
     val seccion: String = "dashboard",
     val filtroPedido: String = "Todos",
@@ -42,6 +44,7 @@ data class AdminUiState(
     val cfgMoneda: String = "COP"
 )
 
+/** ViewModel del panel admin: CRUD remoto de productos/usuarios y gestión de pedidos. */
 class AdminViewModel(
     private val datos: FirestoreDataRepository = Repositorios.datos
 ) : ViewModel() {
@@ -57,13 +60,16 @@ class AdminViewModel(
     private val _uiEffect = MutableSharedFlow<AdminUiEffect>(extraBufferCapacity = 8)
     val uiEffect = _uiEffect.asSharedFlow()
 
+/** Genera un identificador numérico positivo para nuevos registros locales. */
     private fun nuevoId(): Int {
         val valor = UUID.randomUUID().hashCode()
         return if (valor == Int.MIN_VALUE) 0 else abs(valor)
     }
 
+/** Genera un `uid` legible para documentos nuevos de Firestore. */
     private fun nuevoUid(prefixo: String): String = "${prefixo}_${UUID.randomUUID()}"
 
+    /** Siembra el catálogo demo al entrar al panel, sin mostrar aviso cuando ya existen productos. */
     fun asegurarCatalogoRemoto() {
         viewModelScope.launch {
             sembrarCatalogoDemo(mensajeSiVacio = false)
@@ -79,6 +85,7 @@ class AdminViewModel(
     fun onCfgChange(cfg: (AdminUiState) -> AdminUiState) { _uiState.value = cfg(_uiState.value) }
     fun notificar(mensaje: String) { _uiEffect.tryEmit(AdminUiEffect.Toast(mensaje)) }
 
+/** Crea o actualiza un producto en Firestore y notifica el resultado al panel. */
     fun guardarProducto(original: ProductoAdmin?, nombre: String, categoria: String, precio: String, stock: String, estado: String, imagenUrl: String = "") {
         val producto = if (original != null) {
             original.copy(
@@ -110,6 +117,7 @@ class AdminViewModel(
         }
     }
 
+/** Elimina un producto remoto y lo retira de la lista local del panel. */
     fun eliminarProducto(p: ProductoAdmin) {
         viewModelScope.launch {
             datos.eliminarProductoAdmin(p)
@@ -125,10 +133,12 @@ class AdminViewModel(
         }
     }
 
+/** Fuerza el sembrado del catálogo demo solo si la colección remota está vacía. */
     fun restaurarDemo() {
         viewModelScope.launch { sembrarCatalogoDemo(mensajeSiVacio = true) }
     }
 
+/** Ejecuta el sembrado y avisa al usuario según el resultado devuelto por el repositorio. */
     private suspend fun sembrarCatalogoDemo(mensajeSiVacio: Boolean) {
         datos.sembrarCatalogoDemo(repositorioUid())
             .onSuccess { sembrados ->
@@ -145,8 +155,10 @@ class AdminViewModel(
             }
     }
 
+/** Devuelve el UID del administrador autenticado para asignar productos sembrados. */
     private fun repositorioUid(): String = Repositorios.auth.currentUser?.uid.orEmpty()
 
+    /** Actualiza el estado de un pedido y refleja el cambio en la lista local. */
     fun cambiarEstadoPedido(numero: String, nuevoEstado: String) {
         val ped = pedidos.find { it.numero == numero } ?: return
         viewModelScope.launch {
@@ -164,6 +176,7 @@ class AdminViewModel(
     fun onAgregarUsuarioChange(v: Boolean) { _uiState.value = _uiState.value.copy(mostrarAgregarUsuario = v) }
     fun onPeriodoReporteChange(v: String) { _uiState.value = _uiState.value.copy(periodoReporte = v) }
 
+/** Crea o actualiza un usuario normalizando el rol a los valores canónicos de Firestore. */
     fun guardarUsuario(original: UsuarioAdmin?, nombre: String, correo: String, telefono: String, rol: String, estado: String) {
         val rolFinal = when (rol.uppercase()) {
             "ADMIN", "ADMINISTRADOR" -> "ADMIN"
@@ -191,6 +204,7 @@ class AdminViewModel(
         }
     }
 
+/** Desactiva un usuario en lugar de borrar su documento y actualiza la lista local. */
     fun eliminarUsuario(u: UsuarioAdmin) {
         viewModelScope.launch {
             datos.desactivarUsuario(u)

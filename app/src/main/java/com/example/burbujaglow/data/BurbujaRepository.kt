@@ -1,6 +1,7 @@
 package com.example.burbujaglow.data
 
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.example.burbujaglow.data.model.ClienteAdmin
 import com.example.burbujaglow.data.model.ItemCarrito
 import com.example.burbujaglow.data.model.PedidoAdmin
@@ -8,20 +9,29 @@ import com.example.burbujaglow.data.model.ProductoAdmin
 import com.example.burbujaglow.data.model.ProductoComprador
 import com.example.burbujaglow.data.model.UsuarioAdmin
 
-private fun productoConImagenLocal(remoto: ProductoComprador): ProductoComprador {
-    if (remoto.imagenUrl.isNotBlank() || remoto.imagen != 0) return remoto
-    val local = catalogoBurbujaGlow().find { it.id == remoto.id } ?: return remoto
-    return remoto.copy(imagen = local.imagen)
+/** Reemplaza una lista observable solo cuando cambia, evitando recomposiciones innecesarias. */
+private fun <T> SnapshotStateList<T>.replaceIfChanged(nuevos: List<T>) {
+    if (size == nuevos.size && (0 until size).all { this[it] == nuevos[it] }) return
+    clear()
+    addAll(nuevos)
 }
 
+/** Restaura el drawable local cuando el producto remoto no trae URL de imagen. */
+private fun productoConImagenLocal(remoto: ProductoComprador): ProductoComprador {
+    if (remoto.imagenUrl.isNotBlank() || remoto.imagen != 0) return remoto
+    return IMAGENES_LOCALES[remoto.id]?.let { remoto.copy(imagen = it) } ?: remoto
+}
+
+/** Convierte un producto del catálogo comprador a la vista usada por el panel administrativo. */
 private fun aAdministracion(p: ProductoComprador) = ProductoAdmin(
     p.id, p.nombre, p.categoria, p.precio, p.stock.toString(),
     if (p.sello.isBlank()) "ACTIVO" else p.sello,
     p.imagenUrl, p.vendedorId, p.uid, p.activo
 )
 
+/** Recupera los datos extensos del catálogo base y aplica los cambios editados por el admin. */
 internal fun productoDesdeAdmin(p: ProductoAdmin): ProductoComprador {
-    val base = catalogoBurbujaGlow().find { it.id == p.id }
+    val base = PRODUCTOS_BASE_POR_ID[p.id]
     val precioValor = p.precio.filter { it.isDigit() }.toIntOrNull() ?: 0
     return (base ?: ProductoComprador(p.id, p.nombre, p.categoria, p.precio, "", precioValor)).copy(
         id = p.id,
@@ -38,9 +48,10 @@ internal fun productoDesdeAdmin(p: ProductoAdmin): ProductoComprador {
     )
 }
 
-// Repositorio en memoria (antes: listas dispersas en MainActivity.kt).
-// Punto único de datos para ViewModels; persistencia futura: DataStore.
-// Las listas se exponen como List inmutables; toda mutación pasa por métodos.
+/**
+ * Repositorio en memoria y punto único de datos para los ViewModels.
+ * Las listas se exponen como `List` inmutables; toda mutación pasa por sus métodos.
+ */
 class BurbujaRepository {
     private val _productos = mutableStateListOf<ProductoComprador>().apply { addAll(catalogoBurbujaGlow()) }
     val productos: List<ProductoComprador> get() = _productos
@@ -75,7 +86,7 @@ class BurbujaRepository {
     val estadosPedido = listOf("Pendiente", "Confirmado", "Preparando", "Enviado", "Entregado", "Cancelado")
 
     private val _usuarios = mutableStateListOf(
-        UsuarioAdmin(1, "Administrador", "burbujaglow18@gmail.com", "+57 300 123 4567", "ADMIN", "Activo"),
+        UsuarioAdmin(1, "Administrador", "admin@burbujaglow.test", "+57 300 123 4567", "ADMIN", "Activo"),
         UsuarioAdmin(2, "Laura Gómez", "laura.gomez@correo.com", "300 456 7890", "COMPRADOR", "Activo"),
         UsuarioAdmin(3, "Andrea Ruiz", "andrea.ruiz@correo.com", "310 223 5566", "COMPRADOR", "Activo"),
         UsuarioAdmin(4, "Sofía Martínez", "sofia.m@correo.com", "315 998 1122", "COMPRADOR", "Activo"),
@@ -84,6 +95,7 @@ class BurbujaRepository {
     )
     val usuarios: List<UsuarioAdmin> get() = _usuarios
 
+    /** Agrega o incrementa un ítem validando stock; devuelve un mensaje de error o `null` si funciona. */
     fun addToCart(p: ProductoComprador, qty: Int = 1): String? {
         if (p.stock <= 0) return "Producto agotado"
         val idx = _carrito.indexOfFirst { it.producto.id == p.id }
@@ -94,6 +106,7 @@ class BurbujaRepository {
         return null
     }
 
+    /** Ajusta la cantidad de un ítem; cero o menos lo elimina y nunca supera el stock disponible. */
     fun setCantidad(productoId: Int, nueva: Int) {
         val idx = _carrito.indexOfFirst { it.producto.id == productoId }
         if (idx < 0) return
@@ -102,9 +115,13 @@ class BurbujaRepository {
         else if (nueva <= item.producto.stock) _carrito[idx] = item.copy(cantidad = nueva)
     }
 
+    /** Quita un producto del carrito local. */
     fun removeItem(productoId: Int) { _carrito.removeAll { it.producto.id == productoId } }
+
+    /** Vacía el carrito local tras confirmar una compra. */
     fun vaciarCarrito() { _carrito.clear() }
 
+    /** Descuenta del catálogo local las unidades compradas y suma `vendidos`. */
     fun descontarStock() {
         _carrito.forEach { item ->
             val idx = _productos.indexOfFirst { it.id == item.producto.id }
@@ -112,33 +129,28 @@ class BurbujaRepository {
         }
     }
 
+    /** Restaura el catálogo local desde los datos demo base. */
     fun restaurarCatalogoAdmin() {
         sincronizarCatalogo(catalogoBurbujaGlow())
     }
 
+    /** Reemplaza catálogo comprador y admin con datos remotos, conservando imágenes locales de respaldo. */
     fun sincronizarCatalogo(nuevos: List<ProductoComprador>) {
         val conRespaldoLocal = nuevos.map(::productoConImagenLocal)
-        _productos.clear()
-        _productos.addAll(conRespaldoLocal)
-        _productosAdmin.clear()
-        _productosAdmin.addAll(conRespaldoLocal.map(::aAdministracion))
+        _productos.replaceIfChanged(conRespaldoLocal)
+        _productosAdmin.replaceIfChanged(conRespaldoLocal.map(::aAdministracion))
     }
 
-    fun reemplazarPedidos(nuevos: List<PedidoAdmin>) {
-        _pedidos.clear()
-        _pedidos.addAll(nuevos)
-    }
+    /** Actualiza la lista de pedidos visible en el panel administrativo. */
+    fun reemplazarPedidos(nuevos: List<PedidoAdmin>) = _pedidos.replaceIfChanged(nuevos)
 
-    fun reemplazarUsuarios(nuevos: List<UsuarioAdmin>) {
-        _usuarios.clear()
-        _usuarios.addAll(nuevos)
-    }
+    /** Actualiza la lista de usuarios visible en el panel administrativo. */
+    fun reemplazarUsuarios(nuevos: List<UsuarioAdmin>) = _usuarios.replaceIfChanged(nuevos)
 
-    fun reemplazarCarrito(nuevos: List<ItemCarrito>) {
-        _carrito.clear()
-        _carrito.addAll(nuevos)
-    }
+    /** Actualiza el carrito local con los datos recibidos desde Firestore. */
+    fun reemplazarCarrito(nuevos: List<ItemCarrito>) = _carrito.replaceIfChanged(nuevos)
 
+    /** Inserta o actualiza un producto en ambas vistas (comprador y administrador). */
     fun upsertProducto(p: ProductoComprador) {
         val idx = _productos.indexOfFirst { it.id == p.id || it.uid == p.uid }
         if (idx >= 0) _productos[idx] = p else _productos.add(p)
@@ -147,33 +159,35 @@ class BurbujaRepository {
         if (idxAdmin >= 0) _productosAdmin[idxAdmin] = admin else _productosAdmin.add(admin)
     }
 
+    /** Elimina un producto de ambas vistas por `id` o `uid`. */
     fun eliminarProducto(p: ProductoComprador) {
         _productos.removeAll { it.id == p.id || it.uid == p.uid }
         _productosAdmin.removeAll { it.id == p.id || it.uid == p.uid }
     }
 
+    /** Aplica un cambio del panel admin y refleja el resultado en la vista comprador. */
     fun updateProductoAdmin(p: ProductoAdmin) {
         val idx = _productosAdmin.indexOfFirst { it.id == p.id }
         if (idx >= 0) _productosAdmin[idx] = p
         upsertProducto(productoDesdeAdmin(p))
     }
 
-    fun addProductoAdmin(p: ProductoAdmin) { upsertProducto(productoDesdeAdmin(p)) }
+    /** Elimina un producto desde el panel administrativo. */
     fun removeProductoAdmin(p: ProductoAdmin) { eliminarProducto(productoDesdeAdmin(p)) }
 
+    /** Actualiza un pedido existente por su número. */
     fun updatePedido(p: PedidoAdmin) {
         val idx = _pedidos.indexOfFirst { it.numero == p.numero }
         if (idx >= 0) _pedidos[idx] = p
     }
 
+    /** Actualiza un usuario existente por su identificador local. */
     fun updateUsuario(u: UsuarioAdmin) {
         val idx = _usuarios.indexOfFirst { it.id == u.id }
         if (idx >= 0) _usuarios[idx] = u
     }
 
-    fun addUsuario(u: UsuarioAdmin) { _usuarios.add(u) }
-    fun removeUsuario(u: UsuarioAdmin) { _usuarios.remove(u) }
 }
 
-// Instancia única compartida por ShopViewModel y AdminViewModel
+/** Instancia única compartida por los ViewModels de comprador, administrador y vendedor. */
 val burbujaRepository = BurbujaRepository()

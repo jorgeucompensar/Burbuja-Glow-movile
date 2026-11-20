@@ -12,7 +12,7 @@ val CATEGORIAS = listOf(
 )
 
 // Catálogo Burbuja Glow: 24 productos (nombre/precio de cada anuncio + imagen real)
-fun catalogoBurbujaGlow(): List<ProductoComprador> = listOf(
+val CATALOGO_BURBUJA_GLOW: List<ProductoComprador> = listOf(
     ProductoComprador(1, "Fresitas Bálsamos", "Labiales", "$5.000", "Bálsamos de fresa Burbuja Glow: hidratan, suavizan y dejan un aroma delicioso con brillo delicado para uso diario.", 5000, "4.6", 30, "OFERTA", 6500, 98, 210, "Bálsamos de fresa hidratantes con brillo delicado.", listOf("Fórmula Burbuja Glow", "Ingredientes suaves"), "2026-03-05", 8, R.drawable.anuncio_burbuja_glow_de_balsamos_de_fresa, imagenUrl = GITHUB_RAW + "B%C3%A1lsamos_de_Fresa.png"),
     ProductoComprador(2, "Pestañas Tira Atenea", "Pestañas", "$12.000", "Pestañas postizas tira Atenea en rosa: volumen natural, curva elegante y pegado cómodo para realzar tu mirada.", 12000, "4.7", 24, "", 0, 76, 154, "Pestañas postizas tira Atenea, volumen natural.", listOf("Fórmula Burbuja Glow"), "2026-04-10", 8, R.drawable.anuncio_de_pestanas_atenea_en_rosa, imagenUrl = GITHUB_RAW + "Pesta%C3%B1as_Atenea.png"),
     ProductoComprador(3, "Pestañas Racimos New Show Lash", "Pestañas", "$12.000", "Pestañas en racimos de 3 líneas New Show Lash: efecto glamuroso por secciones para una mirada intensa y personalizada.", 12000, "4.8", 20, "MÁS VENDIDO", 0, 112, 289, "Pestañas en racimos de 3 líneas, efecto glamuroso.", listOf("Fórmula Burbuja Glow"), "2026-02-18", 8, R.drawable.anuncio_glamuroso_de_pestanas_en_burbujas, imagenUrl = GITHUB_RAW + "glamuroso_de_pesta%C3%B1as_en_burbujas.png"),
@@ -38,3 +38,8 @@ fun catalogoBurbujaGlow(): List<ProductoComprador> = listOf(
     ProductoComprador(23, "Pinza para Pestañas", "Accesorios", "$14.000", "Pinza para pestañas Burbuja Glow: precisión profesional para aplicar y ajustar tus pestañas postizas.", 14000, "4.6", 19, "", 0, 62, 118, "Pinza de precisión para pestañas.", listOf("Acero inoxidable suave"), "2026-03-18", 6, R.drawable.pinza_para_pestanas_burbuja_glow),
     ProductoComprador(24, "Jabón Líquido Dolce Bella", "Skincare", "$28.000", "Jabón líquido facial Dolce Bella: limpieza suave y efectiva para una piel fresca y radiante.", 28000, "4.5", 14, "", 0, 73, 139, "Jabón líquido facial de limpieza suave.", listOf("Fórmula Burbuja Glow", "pH balanceado"), "2026-06-28", 6, R.drawable.poster_de_jabon_facial_burbuja_glow)
 )
+
+fun catalogoBurbujaGlow(): List<ProductoComprador> = CATALOGO_BURBUJA_GLOW
+
+val IMAGENES_LOCALES: Map<Int, Int> = CATALOGO_BURBUJA_GLOW.associate { it.id to it.imagen }
+val PRODUCTOS_BASE_POR_ID: Map<Int, ProductoComprador> = CATALOGO_BURBUJA_GLOW.associateBy { it.id }

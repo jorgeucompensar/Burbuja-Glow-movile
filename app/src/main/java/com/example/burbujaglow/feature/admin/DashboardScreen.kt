@@ -8,7 +8,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -16,14 +15,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.burbujaglow.core.components.*
 import com.example.burbujaglow.data.CATEGORIAS
 
 // Dashboard principal: estadísticas, gráfico de barras y ventas por categoría
 @Composable
 fun DashboardScreen(viewModel: AdminViewModel) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val pedidos = viewModel.pedidos
     val productos = viewModel.productos
     val pedidosActivos = pedidos.filter { it.estado != "Cancelado" }
