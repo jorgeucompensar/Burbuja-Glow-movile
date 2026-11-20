@@ -7,9 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pets
-import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,24 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.burbujaglow.R
 import com.example.burbujaglow.data.model.ProductoComprador
-
-// Sello animalista: identifica la marca como cruelty-free en toda la app
-@Composable
-fun CrueltyFreeBadge(
-    modifier: Modifier = Modifier,
-    texto: String = "Cruelty-Free · 100% Libre de Crueldad Animal"
-) {
-    Row(
-        modifier = modifier.clip(RoundedCornerShape(50.dp)).background(RoseLight).padding(horizontal = 12.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(Icons.Filled.Pets, contentDescription = "Cruelty-Free", tint = Rose, modifier = Modifier.size(14.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(texto, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Rose, letterSpacing = .4.sp)
-        Spacer(Modifier.width(4.dp))
-        Icon(Icons.Filled.Verified, contentDescription = null, tint = Rose, modifier = Modifier.size(12.dp))
-    }
-}
 
 @Composable
 fun GoldenTopBar() { Box(Modifier.fillMaxWidth().height(4.dp).background(Gold)) }

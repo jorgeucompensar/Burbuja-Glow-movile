@@ -40,7 +40,7 @@ class SplashViewModel : ViewModel() {
     }
 }
 
-// ── SPLASH SCREEN (logo Burbuja Glow + temática animalista) ────────────────
+// ── SPLASH SCREEN (logo Burbuja Glow + tema de burbujas) ──────────────────
 @Composable
 fun SplashScreen(onFinished: () -> Unit, viewModel: SplashViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
     val progreso by viewModel.progreso.collectAsState()
@@ -55,7 +55,7 @@ fun SplashScreen(onFinished: () -> Unit, viewModel: SplashViewModel = androidx.l
             Spacer(Modifier.height(18.dp))
             Text("BURBUJA GLOW", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Gold, letterSpacing = 4.sp)
             Spacer(Modifier.height(8.dp))
-            Text("Belleza sin crueldad", fontFamily = Serif, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Charcoal, textAlign = TextAlign.Center)
+            Text("Belleza que brilla", fontFamily = Serif, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Charcoal, textAlign = TextAlign.Center)
             Spacer(Modifier.height(10.dp))
             Text("Cosmética y cuidado capilar", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center, lineHeight = 17.sp)
             Spacer(Modifier.height(30.dp))

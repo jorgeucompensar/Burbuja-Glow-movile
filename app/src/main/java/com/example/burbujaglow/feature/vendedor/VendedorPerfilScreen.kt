@@ -55,7 +55,6 @@ fun VendedorPerfilScreen(viewModel: VendedorViewModel) {
                 Text(state.perfilNombre, fontFamily = Serif, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Charcoal, textAlign = TextAlign.Center)
                 Text("Rol · Vendedor", fontSize = 11.sp, color = Gold, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
-                CrueltyFreeBadge()
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     Metrica("Productos", "${viewModel.productos.size}", Charcoal)
@@ -88,7 +87,7 @@ fun VendedorPerfilScreen(viewModel: VendedorViewModel) {
         }
         Spacer(Modifier.height(12.dp))
         Text(
-            "Burbuja Glow es una boutique de cosmética y cuidado capilar 100% libre de crueldad animal.",
+            "Burbuja Glow es una boutique de cosmética y cuidado capilar.",
             fontSize = 10.sp, color = Color.Gray, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), lineHeight = 15.sp
         )
     }

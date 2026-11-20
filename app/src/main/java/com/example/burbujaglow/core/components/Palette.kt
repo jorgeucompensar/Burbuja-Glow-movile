@@ -5,7 +5,7 @@ import androidx.compose.ui.text.font.FontFamily
 import java.text.NumberFormat
 import java.util.Locale
 
-// Identidad visual Burbuja Glow — boutique animalista / cruelty-free
+// Identidad visual Burbuja Glow — boutique de cosmética y cuidado capilar
 // Fondo marfil #F9F9F8, tarjetas blancas, dorado #8C7355, rosa #B25353 y negro #1A1A1A
 val Ivory = Color(0xFFF9F9F8)
 val IvoryDark = Color(0xFFF1EDE6)

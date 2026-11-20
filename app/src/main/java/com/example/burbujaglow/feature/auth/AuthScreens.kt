@@ -71,7 +71,6 @@ fun RegistroCompradorScreen(
                     Spacer(Modifier.height(6.dp))
                     Text("Elige tu rol y crea tu cuenta. El registro de administrador requiere código de invitación.", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center, lineHeight = 17.sp)
                     Spacer(Modifier.height(10.dp))
-                    CrueltyFreeBadge()
                 }
                 Spacer(Modifier.height(20.dp))
                 if (enviado) {
@@ -303,7 +302,6 @@ fun LoginScreen(
                     Spacer(Modifier.height(6.dp))
                     Text("Accede al panel administrativo, panel vendedor o tienda de BURBUJA GLOW", fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center, lineHeight = 17.sp)
                     Spacer(Modifier.height(10.dp))
-                    CrueltyFreeBadge()
                 }
                 Spacer(Modifier.height(22.dp))
                 StyledField("Usuario o correo", state.usuario, viewModel::onUsuarioChange, "admin / vendedor / tu@email.com", Icons.Filled.Person)

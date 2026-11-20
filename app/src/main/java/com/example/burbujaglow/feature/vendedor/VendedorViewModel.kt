@@ -36,7 +36,7 @@ data class VendedorUiState(
     val perfilCorreo: String = "vendedor@burbujaglow.test",
     val perfilTelefono: String = "+57 300 123 4567",
     val perfilCiudad: String = "Bogotá D.C., Colombia",
-    val perfilTienda: String = "BURBUJA GLOW · Boutique cruelty-free",
+    val perfilTienda: String = "BURBUJA GLOW · Boutique de cosmética y cuidado capilar",
     val vendedorUid: String = ""
 )
 
